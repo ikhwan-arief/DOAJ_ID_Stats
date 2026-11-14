@@ -1,12 +1,12 @@
 # Agent Handoff Log
 
-**Project state:** Documentation package created. **No application code generated and no GitHub publication performed.**
+**Project state:** WP3 data engine and versioned public-safe analytical exports completed locally. **No GitHub publication performed.**
 
 ## Current task
-- Next owner: **Codex**
-- Work package: **WP1**
-- Goal: set up local privacy-safe repository and validated input/ISSN foundation.
-- Prerequisites: source CSVs placed by user in `data/raw/`; Git initialized locally; master docs copied into project root.
+- Next owner: **Antigravity**
+- Work package: **WP4**
+- Goal: connect all seven pages to the versioned WP3 public-safe exports and shared filters.
+- Prerequisites: use only `data/public/v1/`; never import or inspect `data/raw/`.
 
 ## Handoff template (append a new entry after each task)
 ```text
@@ -118,3 +118,41 @@ Open issues/risks:
 Contract changes proposed: None.
 
 Next owner + smallest next action: **Codex / WP3** — read contracts and implement the deterministic journal reconciler, strict/extended ISSN matching with ambiguity detection, repeat frequency chronology, SINTA rank mapping, and versioned public-safe exports.
+
+## 2026-11-15 — WP3 completed
+
+Date/time: 2026-11-15 06:52 WIB (UTC+7)
+
+Agent / package: Codex / WP3
+
+Git branch + commit SHAs: `main` / `18ebf35` (engine), `ef0d965` (quality/category invariants; manifest ETL source), `0530223` (versioned public exports)
+
+Changed files (safe filenames only): `observatory/engine.py`; `scripts/build_public_data.py`; `tests/test_engine.py`; ten versioned JSON files under `data/public/v1/`.
+
+Completed:
+- Implemented deterministic SINTA journal identities from exact usable ISSN signatures; placeholder, missing, and invalid ISSNs never create shared identities.
+- Implemented strict DOAJ matching exactly as contracted: e-ISSN to SINTA e-ISSN, with p-ISSN to SINTA p-ISSN only when DOAJ e-ISSN is absent. Extended cross-medium matching is separately labeled and excluded from strict headline metrics.
+- Preserved 8,898 Rejected, 570 Withdrawn, and 16,620 SINTA source rows one-to-one, including duplicates, order-derived source IDs, both raw ISSN media, and all 37 occurrences of the required placeholder literals.
+- Built one-to-one match audits, row-level public facts, journal dimension, rejection histories, record/date/year recurrence measures, consecutive valid-day gaps, all S1–S6/NA categories, explicit unmatched/ambiguous buckets, seven exact Venn regions, equivalent UpSet aggregates, and deterministic safe-ID review samples.
+- Generated schema-versioned (`1.0.0`) public exports under `data/public/v1/`. The manifest records engine source commit `ef0d965` and SHA-256 for each output.
+- Strict matching: 7,106 matched / 2,362 unmatched / 0 ambiguous DOAJ records. Extended view: 7,264 matched / 2,203 unmatched / 1 ambiguous; cross-medium results remain separate.
+- SINTA source-record ranks: S1 262; S2 1,614; S3 3,277; S4 5,815; S5 5,351; S6 298; NA 3; total 16,620.
+- Rejected histories: 5,754 resolved journals; 1,917 have at least two records; 1,894 have at least two distinct valid event days; 1,568 span at least two event years.
+- Exact intersection regions (resolved journal universe 18,370): R 1,651; W 89; S 12,181; RW 10; RS 3,969; WS 346; RWS 124. Region sum and R/W/S marginals are regression-tested.
+
+Tests executed + actual result:
+- `python3 -m unittest discover -s tests -v` — PASS; 22 tests, 0 failures/errors, including real-source conservation, strict matching method, placeholders, rank denominator, recurrence, Venn/UpSet, and safe sample invariants.
+- Two consecutive `python3 scripts/build_public_data.py --etl-commit ef0d965` runs plus SHA-256 comparison — PASS; all 10 generated files byte-identical.
+- `python3 scripts/validate_public.py data/public public dist` — PASS after final build; no forbidden account fields, email-shaped public content, raw filenames, credential-like values, or internal application URLs detected.
+- `python3 scripts/validate_public.py --staged` and `git diff --cached --check` — PASS before each WP3 commit.
+- `npm run typecheck` — PASS; 0 TypeScript errors.
+- `npm test` — PASS; 6 frontend shell assertions.
+- `npm run build` — PASS; Vite production build completed (29 modules; JS 294.63 kB / 82.12 kB gzip).
+
+Privacy/data review: The engine constructs public rows field-by-field and never serializes full raw dictionaries. Email-shaped free text is omitted, unsafe or credential-bearing URLs are omitted, public DOAJ profile selection accepts only validated HTTPS `/toc/...` candidates, and the internal application route is categorically rejected without network probing. Raw CSVs, `data/private_work/`, caches, `node_modules/`, and `dist/` remain ignored and uncommitted.
+
+Open issues/risks: Identity is intentionally conservative. Exact ISSN-signature conflicts remain separate, and the single extended ambiguous record is not assigned a SINTA identity. SINTA ranks are snapshot-only as of 15 November 2026. Repeated source rows are records, not proof of separate applications or decisions. Large JSON facts are compact and should be loaded or partitioned deliberately in WP4 for browser performance.
+
+Contract changes proposed: None.
+
+Next owner + smallest next action: **Antigravity / WP4a** — define typed loaders for `data/public/v1/summary_public.json`, `intersections_public.json`, and the fact/dimension exports; replace synthetic page metrics incrementally while preserving the shared metric definitions and privacy boundary.
