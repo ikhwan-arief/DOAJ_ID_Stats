@@ -28,6 +28,7 @@ diagnostics/
 dist/
 build/
 *.zip
+node_modules/
 
 # Editor and operating-system files
 .DS_Store
