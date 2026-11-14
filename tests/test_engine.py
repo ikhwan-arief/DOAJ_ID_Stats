@@ -1,0 +1,94 @@
+"""WP3 integration invariants over the authorized local sources.
+
+Developed by Ikhwan Arief (ikhwan[at]unand.ac.id).
+Copyright (c) 2026 Ikhwan Arief. Copyright held by the application developer.
+"""
+
+from collections import Counter
+from pathlib import Path
+import unittest
+
+from observatory.engine import DataEngine, RANKS
+
+
+class EngineIntegrationTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        raw_dir = Path("data/raw")
+        if not raw_dir.exists():
+            raise unittest.SkipTest("authorized local sources are unavailable")
+        cls.outputs = DataEngine(raw_dir).build()
+
+    def test_source_rows_are_conserved_one_to_one(self) -> None:
+        self.assertEqual(len(self.outputs["fact_rejected_public.json"]), 8_898)
+        self.assertEqual(len(self.outputs["fact_withdrawn_public.json"]), 570)
+        self.assertEqual(len(self.outputs["sinta_snapshot_public.json"]), 16_620)
+        for filename in ("fact_rejected_public.json", "fact_withdrawn_public.json", "sinta_snapshot_public.json"):
+            records = self.outputs[filename]
+            self.assertEqual(len(records), len({record["source_record_id"] for record in records}))
+
+    def test_raw_issns_and_placeholders_are_retained(self) -> None:
+        records = sum(
+            (self.outputs[name] for name in (
+                "fact_rejected_public.json", "fact_withdrawn_public.json", "sinta_snapshot_public.json"
+            )),
+            [],
+        )
+        required = {"XXXX-XXXX", "0000-0XXX"}
+        occurrences = [
+            (record[key], record[key.replace("_raw", "_quality")])
+            for record in records
+            for key in ("p_issn_raw", "e_issn_raw")
+            if record[key] in required
+        ]
+        self.assertEqual(len(occurrences), 37)
+        self.assertTrue(all(quality == "placeholder" for _, quality in occurrences))
+
+    def test_rank_categories_and_source_denominator_reconcile(self) -> None:
+        summary = self.outputs["summary_public.json"]
+        counts = summary["sinta_rank_source_record_counts"]
+        self.assertEqual(tuple(counts), RANKS)
+        self.assertEqual(sum(counts.values()), 16_620)
+        self.assertTrue(all(counts[rank] >= 0 for rank in RANKS))
+
+    def test_intersection_regions_are_exact_and_reconcile(self) -> None:
+        data = self.outputs["intersections_public.json"]
+        regions = data["venn_regions"]
+        self.assertEqual(len(regions), 7)
+        self.assertEqual({region["region"] for region in regions}, {"R", "W", "S", "RW", "RS", "WS", "RWS"})
+        self.assertEqual(sum(region["count"] for region in regions), self.outputs["summary_public.json"]["intersection_universe_count"])
+        self.assertEqual(regions, data["upset_aggregates"])
+        for region in regions:
+            self.assertEqual(region["count"], len(region["journal_ids"]))
+
+    def test_repeat_histogram_and_history_reconcile(self) -> None:
+        histories = [
+            value for value in self.outputs["rejection_history_public.json"]
+            if value["identity_status"] == "resolved"
+        ]
+        histogram = Counter(value["source_record_count"] for value in histories)
+        expected = {str(key): histogram[key] for key in sorted(histogram)}
+        self.assertEqual(self.outputs["summary_public.json"]["repeat_record_histogram"], expected)
+        self.assertEqual(
+            sum(value["source_record_count"] for value in self.outputs["rejection_history_public.json"]),
+            8_898,
+        )
+
+    def test_placeholder_only_rows_never_share_a_provisional_identity(self) -> None:
+        records = self.outputs["fact_rejected_public.json"] + self.outputs["fact_withdrawn_public.json"]
+        placeholder_only = [
+            record for record in records
+            if record["p_issn_quality"] in {"placeholder", "missing"}
+            and record["e_issn_quality"] in {"placeholder", "missing"}
+        ]
+        self.assertEqual(len(placeholder_only), len({record["journal_id"] for record in placeholder_only}))
+
+    def test_match_audit_is_one_to_one_with_doaj_rows(self) -> None:
+        audits = self.outputs["match_audit_public.json"]
+        self.assertEqual(len(audits), 8_898 + 570)
+        self.assertEqual(len(audits), len({record["source_record_id"] for record in audits}))
+        self.assertTrue(all(record["strict_method"] in {"e_to_e", "p_to_p_fallback", "no_usable_issn"} for record in audits))
+
+
+if __name__ == "__main__":
+    unittest.main()
