@@ -1,15 +1,15 @@
 {
-  "etl_commit": "ef0d965",
+  "etl_commit": "c51d161",
   "outputs": {
     "data_quality_public.json": "72ed2360bfad116b3085513569f3c503ce3129be5fb2a27a31cb25f8cc3df1c8",
     "dim_journals_public.json": "1eadde1ee739c4ca21caee4e0d8a81f14b0850e59dcd2d5de34e523a646e6e42",
-    "fact_rejected_public.json": "c8891ac17f6a23bbf24344e430d35c597c49bc935a4c0fa8595a59aaf7f6ca8f",
-    "fact_withdrawn_public.json": "a5cca84895057fe5801c1d0c9d5384511f95c54711d583efd4c35c61f3fca828",
+    "fact_rejected_public.json": "ecff8235bf8d5ef0958e8883bf56ee667956d08a82e7594855142fc333ae7f7f",
+    "fact_withdrawn_public.json": "be39738afe2dbb69843de84832b2c1cf6c0b1983a8e84bcb0f4c8f2e93387301",
     "intersections_public.json": "e0c34e0ae54be2ce30c1472df668acb6acab06723858e4c78d9555c000254ecc",
     "match_audit_public.json": "a113fa021241dbb89ba7dcf840e5ff5ff45ea74ff47b8b76942f397da604c6f5",
     "rejection_history_public.json": "aeedcc8c973a4cbacb959fbdc399c5728b2f571bbc9fd3c7b1461e2d038a183d",
     "sinta_snapshot_public.json": "6b9eae2d24ffe828403585a3c7ba7ba3f35d0ab6ce7017c4837b4e688188ed4f",
-    "summary_public.json": "73fa97e9364032181681efb9ac646c6243108abc2ac8e7b040100c254122ea9d"
+    "summary_public.json": "74b6a1cc88f62fd965df154c78a732de4c0683bf4a29ac6372100c6f7181bdbd"
   },
   "schema_version": "1.0.0",
   "source_dates": {

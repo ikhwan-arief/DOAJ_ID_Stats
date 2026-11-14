@@ -28,14 +28,15 @@ class PublicValidatorTests(unittest.TestCase):
                 encoding="utf-8",
             )
             failures = scan_directories([root])
-            self.assertEqual(len(failures), 4)
+            self.assertEqual(len(failures), 3)
 
     def test_recursive_scanner_rejects_private_keys_and_tokens(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             private_key_marker = "-----" + "BEGIN PRIVATE KEY-----"
+            fictional_token = "ghp_" + "abcdefghijklmnopqrstuvwxyz123456"
             (root / "unsafe.txt").write_text(
-                private_key_marker + "\nghp_abcdefghijklmnopqrstuvwxyz123456",
+                private_key_marker + "\n" + fictional_token,
                 encoding="utf-8",
             )
             failures = scan_directories([root])

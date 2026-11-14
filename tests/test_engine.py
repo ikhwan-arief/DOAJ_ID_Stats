@@ -53,6 +53,9 @@ class EngineIntegrationTests(unittest.TestCase):
         rejected_counts = summary["rejected_rank_source_record_counts"]
         self.assertEqual(tuple(rejected_counts), (*RANKS, "unmatched", "ambiguous"))
         self.assertEqual(sum(rejected_counts.values()), 8_898)
+        rejected_journal_counts = summary["rejected_rank_unique_journal_counts"]
+        self.assertEqual(tuple(rejected_journal_counts), (*RANKS, "ambiguous"))
+        self.assertLessEqual(sum(rejected_journal_counts.values()), summary["identity_counts"]["rejected_resolved_journals"])
 
     def test_intersection_regions_are_exact_and_reconcile(self) -> None:
         data = self.outputs["intersections_public.json"]
