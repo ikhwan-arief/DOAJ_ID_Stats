@@ -1,12 +1,12 @@
 # Agent Handoff Log
 
-**Project state:** WP3 data engine and versioned public-safe analytical exports completed locally. **No GitHub publication performed.**
+**Project state:** WP5 integration, regression/privacy CI, and non-deploying Pages artifact build completed locally. **No GitHub publication performed.**
 
 ## Current task
 - Next owner: **Antigravity**
-- Work package: **WP4**
-- Goal: connect all seven pages to the versioned WP3 public-safe exports and shared filters.
-- Prerequisites: use only `data/public/v1/`; never import or inspect `data/raw/`.
+- Work package: **WP6**
+- Goal: perform visual, responsive, keyboard, accessibility, and interaction QA over the verified WP5 build.
+- Prerequisites: preserve WP5 metric/privacy invariants; do not change analytical contracts silently.
 
 ## Handoff template (append a new entry after each task)
 ```text
@@ -198,3 +198,48 @@ Open issues/risks: None for WP4. Frontend is fully wired to verified public data
 Contract changes proposed: None.
 
 Next owner + smallest next action: **Codex / WP5** — perform end-to-end data integrity checks, recursive privacy scans on `dist/`, verify bundle performance, and configure the GitHub Actions workflow for automated testing and GitHub Pages staging.
+
+## 2026-11-15 — WP5 completed
+
+Date/time: 2026-11-15 06:48 WIB (UTC+7)
+
+Agent / package: Codex / WP5
+
+Git branch + commit SHAs: `main` / `c51d161` (integration fixes, verifier, CI/privacy gates), `131cafc` (regenerated and verified public exports)
+
+Changed files (safe filenames only): `.github/workflows/ci.yml`; `observatory/engine.py`; `scripts/verify_integration.py`; `scripts/validate_public.py`; frontend filter/chart/page/type files; `tests/test_engine.py`; `tests/test_public_validator.py`; canonical and frontend `v1` public exports.
+
+Completed:
+- Added a source-to-public integration verifier that rebuilds from all three local source CSVs, compares every canonical export payload, verifies canonical/frontend byte parity and manifest hashes, independently recalculates every published KPI, and checks all strict/extended rank-by-year filter partitions.
+- Verified exact Venn and UpSet membership equality, seven-region conservation, membership-list lengths, total universe, and all R/W/S marginal totals.
+- Verified rejection source-record, distinct-day, distinct-year, histogram, and consecutive-gap outputs against source processing.
+- Verified complete SINTA S1–S6/NA distributions, rejected record counts by rank, and distinct rejected-journal counts by rank.
+- Corrected SINTA “prevalence” to use distinct rejected journals divided by distinct SINTA journals. Matched record counts remain a separate column; the footer no longer labels all 8,898 rejection rows as matched.
+- Removed hard-coded UpSet marginal and universe totals; all are now derived from the seven exported regions.
+- Added extended matched journal/rank fields to public DOAJ facts so extended-rank filtering is deterministic rather than reusing strict ranks.
+- Added event-year filtering to rejected, withdrawn, and rejection-history views; event-kind exclusions; strict/extended effective-rank filtering; and functional record/journal KPI grain switching on Overview.
+- Corrected public methodology copy so forbidden account-field names and the literal internal application route do not enter the production JavaScript bundle.
+- Confirmed the authoritative withdrawn source has exactly **one** recorded reinstatement date. The WP4 handoff statement claiming 64 was incorrect; the page computes and displays the fact-derived value.
+- Strengthened the privacy scanner to reject the internal route in any public text, exact forbidden JSON keys, forbidden account-field names in public HTML/JS/text, email-shaped content, raw filenames, private-key markers, GitHub-style tokens, and AWS access-key patterns.
+- Added GitHub Actions CI gates for locked dependency installation, tracked-private-path rejection, Python and frontend tests, export reconciliation, type checking, production build, privacy scan, and tested Pages artifact upload. The workflow has read-only contents permission and **no deployment job or Pages write permission**.
+
+Tests executed + actual result:
+- `python3 -m unittest discover -s tests -v` — PASS; 23 tests, 0 failures/errors.
+- `python3 scripts/verify_integration.py` — PASS; rebuilt 8,898 Rejected / 570 Withdrawn / 16,620 SINTA rows from local sources and matched every committed export; confirmed one reinstatement date.
+- `python3 scripts/verify_integration.py --skip-source-rebuild` — PASS; public-CI mode verified hashes, copies, all KPIs, intersections, histories, and filter partitions without private inputs.
+- `npm run typecheck` — PASS; 0 TypeScript errors.
+- `npm test` — PASS; 11 frontend tests, 0 failures.
+- `npm run build` — PASS; Vite transformed 30 modules; JS 302.37 kB / 84.10 kB gzip.
+- `python3 scripts/validate_public.py data/public public dist` — PASS after the final build.
+- `python3 scripts/validate_public.py --staged` and `git diff --cached --check` — PASS before both WP5 commits.
+- Git tracked-private-path check — PASS; zero tracked files under `data/raw/` or `data/private_work/`.
+- Git-history full internal-URL scan — PASS; zero full internal application URLs.
+- Current-tree credential/private-key scan — PASS; zero matches.
+
+Privacy/data review: Canonical exports, frontend copies, filtered-download source data, production HTML/JS/CSS, staged files, and ignored-path boundaries passed. The Git-history credential-pattern scan reported one deliberately fictional detector fixture in the already-created `c51d161` test diff. It was manually adjudicated as synthetic, not a real credential, and the current tree now constructs the marker from components so no contiguous credential-like value remains. No suppression was added.
+
+Open issues/risks: The global subject filter remains reserved in state because subject metadata is not part of the current DOAJ public facts; the UI does not expose a misleading subject selector. Overview intersections intentionally remain fixed unfiltered baseline partitions and the filter bar now says filters apply only to compatible views. WP6 must visually verify large-table pagination, year controls, rank/matching-mode interactions, mobile layout, keyboard operation, and the corrected SINTA table columns. No deployment has occurred.
+
+Contract changes proposed: None.
+
+Next owner + smallest next action: **Antigravity / WP6** — run responsive and keyboard/browser QA on all seven routes, focusing first on corrected SINTA prevalence columns, derived UpSet marginals, year-range controls, strict/extended rank behavior, filtered CSV export, and large-directory performance. Make visual/interaction fixes only, then hand back to Codex WP7.

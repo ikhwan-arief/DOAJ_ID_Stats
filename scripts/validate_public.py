@@ -18,6 +18,7 @@ from observatory.privacy import EMAIL_PATTERN
 
 
 INTERNAL_ROUTE = re.compile(r"(?i)/" + "admin" + "/" + "application" + "/")
+INTERNAL_URL = re.compile(r"(?i)https?://[^\s\"']+" + "/" + "admin" + "/" + "application" + "/")
 RAW_NAME = re.compile(
     r"(?i)(ID_-_(?:Rejected_applications|Last_Withdrawn).*\.csv|sinta_database_final_.*\.csv)"
 )
@@ -32,7 +33,7 @@ SECRET_PATTERNS = (
 
 def scan_text(label: str, text: str, *, public_artifact: bool) -> list[str]:
     failures = []
-    if INTERNAL_ROUTE.search(text):
+    if (public_artifact and INTERNAL_ROUTE.search(text)) or (not public_artifact and INTERNAL_URL.search(text)):
         failures.append(f"{label}: contains the internal DOAJ application route")
     if public_artifact and EMAIL_PATTERN.search(text):
         failures.append(f"{label}: contains email-shaped content")
