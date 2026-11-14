@@ -117,6 +117,36 @@ export const GlobalFilterBar: React.FC<GlobalFilterBarProps> = ({
           </div>
 
           {/* Metric View Toggle: Records vs Journals */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', minWidth: '180px' }}>
+            <span style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--dark-grey)' }}>
+              Event Year Range
+            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <select
+                aria-label="Start event year"
+                value={filters.yearRange[0]}
+                onChange={(event) => onChange({
+                  ...filters,
+                  yearRange: [Number(event.target.value), Math.max(Number(event.target.value), filters.yearRange[1])],
+                })}
+              >
+                {[2022, 2023, 2024, 2025, 2026].map((year) => <option key={year} value={year}>{year}</option>)}
+              </select>
+              <span aria-hidden="true">–</span>
+              <select
+                aria-label="End event year"
+                value={filters.yearRange[1]}
+                onChange={(event) => onChange({
+                  ...filters,
+                  yearRange: [Math.min(filters.yearRange[0], Number(event.target.value)), Number(event.target.value)],
+                })}
+              >
+                {[2022, 2023, 2024, 2025, 2026].map((year) => <option key={year} value={year}>{year}</option>)}
+              </select>
+            </div>
+          </div>
+
+          {/* Metric View Toggle: Records vs Journals */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             <span style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--dark-grey)' }}>
               Metric Grain
@@ -203,7 +233,7 @@ export const GlobalFilterBar: React.FC<GlobalFilterBarProps> = ({
             {totalMatchingRecords !== undefined ? (
               <strong>{totalMatchingRecords.toLocaleString()} items matching criteria</strong>
             ) : (
-              'All filters synchronize across all seven views'
+              'Filters apply to compatible record and journal views; overview baselines remain fixed'
             )}
           </span>
           <span style={{ fontStyle: 'italic' }}>

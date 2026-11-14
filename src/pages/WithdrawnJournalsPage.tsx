@@ -26,9 +26,12 @@ export const WithdrawnJournalsPage: React.FC<WithdrawnJournalsPageProps> = ({
   const filteredWithdrawn = useMemo(() => {
     if (!withdrawn) return [];
     return withdrawn.filter((rec) => {
+      if (filters.eventKind === 'rejected') return false;
+      if (rec.last_withdrawn_year !== null && (rec.last_withdrawn_year < filters.yearRange[0] || rec.last_withdrawn_year > filters.yearRange[1])) return false;
+      const effectiveRank = filters.matchingMode === 'extended' ? rec.extended_sinta_rank : rec.sinta_rank;
       // SINTA rank filter
       if (filters.sintaRank !== 'all') {
-        if (rec.sinta_rank !== filters.sintaRank) {
+        if (effectiveRank !== filters.sintaRank) {
           return false;
         }
       }
@@ -237,7 +240,7 @@ export const WithdrawnJournalsPage: React.FC<WithdrawnJournalsPageProps> = ({
                     )}
                   </td>
                   <td style={{ padding: 'var(--space-3)' }}>
-                    <RankBadge rank={rec.sinta_rank} />
+                    <RankBadge rank={filters.matchingMode === 'extended' ? rec.extended_sinta_rank : rec.sinta_rank} />
                   </td>
                   <td style={{ padding: 'var(--space-3)' }}>
                     {rec.doaj_profile_url ? (

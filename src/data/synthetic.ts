@@ -11,7 +11,7 @@ import {
  * - Marked explicitly as synthetic data for design/interaction scaffolding.
  * - No raw DOAJ/SINTA CSV rows copied.
  * - Includes placeholder ISSNs ('XXXX-XXXX', '0000-0XXX') to test resilience.
- * - Adheres strictly to DOAJ link policy: /toc/... public profile links only; NO /admin/application/... internal paths.
+ * - Adheres strictly to DOAJ link policy: public journal-profile links only; internal application paths are excluded.
  */
 
 export const SYNTHETIC_KPIS: SyntheticSummaryKPIs = {

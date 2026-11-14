@@ -156,10 +156,10 @@ export const DataQualityPage: React.FC = () => {
             <br />
             • Withdrawn records link to public journal tables of contents (<code className="font-mono">https://doaj.org/toc/...</code>).
             <br />
-            • Rejected records link to internal administration paths (<code className="font-mono">/admin/application/...</code>).
+            • Rejected records may contain internal administration links that are never copied to public outputs.
             <br /><br />
-            <strong>Categorical Rule:</strong> All <code className="font-mono">/admin/application/...</code> paths are treated as strictly
-            confidential internal administrative routes and are unconditionally barred from public exports, bundles, and UI rendering.
+            <strong>Categorical Rule:</strong> Internal application routes are treated as confidential and are unconditionally barred
+            from public exports, bundles, and UI rendering.
           </p>
         </section>
 
@@ -169,8 +169,7 @@ export const DataQualityPage: React.FC = () => {
             4. SINTA Editor URL & Personal Data Exclusions
           </h3>
           <p style={{ fontSize: 'var(--text-sm)', color: 'var(--dark-grey)', lineHeight: 1.6 }}>
-            • DOAJ internal account fields (<code className="font-mono">Owner</code>, <code className="font-mono">Account Name</code>,{' '}
-            <code className="font-mono">Account Email</code>) are barred from ingestion and export.
+            • DOAJ personal account and contact columns are barred from public transformation and export.
             <br />
             • SINTA <code className="font-mono">Editor URL</code> links point to verified public editorial team rosters on journal
             websites and are approved for public transparency after safe URL schema checks (<code className="font-mono">https://</code> or{' '}

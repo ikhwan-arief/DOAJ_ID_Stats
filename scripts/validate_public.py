@@ -17,21 +17,31 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from observatory.privacy import EMAIL_PATTERN
 
 
-INTERNAL_URL = re.compile(r"(?i)https?://[^\s\"']+/admin/application/")
+INTERNAL_ROUTE = re.compile(r"(?i)/" + "admin" + "/" + "application" + "/")
 RAW_NAME = re.compile(
     r"(?i)(ID_-_(?:Rejected_applications|Last_Withdrawn).*\.csv|sinta_database_final_.*\.csv)"
 )
 TEXT_SUFFIXES = {".csv", ".html", ".js", ".json", ".log", ".md", ".txt", ".xml"}
+FORBIDDEN_FIELD_NAMES = ("Owner", "Account Name", "Account Email")
+SECRET_PATTERNS = (
+    re.compile(r"-----" + r"BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----"),
+    re.compile(r"\bgh[opusr]_[A-Za-z0-9_]{20,}\b"),
+    re.compile(r"\bAKIA[0-9A-Z]{16}\b"),
+)
 
 
 def scan_text(label: str, text: str, *, public_artifact: bool) -> list[str]:
     failures = []
-    if INTERNAL_URL.search(text):
-        failures.append(f"{label}: contains an internal DOAJ application URL")
+    if INTERNAL_ROUTE.search(text):
+        failures.append(f"{label}: contains the internal DOAJ application route")
     if public_artifact and EMAIL_PATTERN.search(text):
         failures.append(f"{label}: contains email-shaped content")
     if public_artifact and RAW_NAME.search(text):
         failures.append(f"{label}: contains a raw source filename")
+    if public_artifact and not label.endswith(".json") and any(name in text for name in FORBIDDEN_FIELD_NAMES):
+        failures.append(f"{label}: contains a forbidden account field name")
+    if any(pattern.search(text) for pattern in SECRET_PATTERNS):
+        failures.append(f"{label}: contains a credential or private-key pattern")
     if public_artifact and label.endswith(".json"):
         try:
             value = json.loads(text)

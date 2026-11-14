@@ -35,9 +35,10 @@ export const SintaAnalysisPage: React.FC<SintaAnalysisPageProps> = ({
   const sintaRows = sintaRanks.map((rank) => {
     const sintaCount = summary.sinta_rank_unique_journal_counts[rank] || 0;
     const rejectedRecordMatches = summary.rejected_rank_source_record_counts[rank] || 0;
+    const rejectedJournalMatches = summary.rejected_rank_unique_journal_counts[rank] || 0;
     const percentage = sintaCount > 0 ? ((sintaCount / sintaTotal) * 100).toFixed(2) : '—';
     const rejectionRate = sintaCount > 0
-      ? `${((rejectedRecordMatches / sintaCount) * 100).toFixed(1)}%`
+      ? `${((rejectedJournalMatches / sintaCount) * 100).toFixed(1)}%`
       : '—';
 
     return {
@@ -45,6 +46,7 @@ export const SintaAnalysisPage: React.FC<SintaAnalysisPageProps> = ({
       sintaCount,
       percentage,
       rejectedRecordMatches,
+      rejectedJournalMatches,
       rejectionRate,
     };
   });
@@ -100,7 +102,8 @@ export const SintaAnalysisPage: React.FC<SintaAnalysisPageProps> = ({
                 <th style={{ padding: 'var(--space-3)', textAlign: 'right' }}>Total Journals in SINTA</th>
                 <th style={{ padding: 'var(--space-3)', textAlign: 'right' }}>% of SINTA Census</th>
                 <th style={{ padding: 'var(--space-3)', textAlign: 'right' }}>Matched Rejection Records</th>
-                <th style={{ padding: 'var(--space-3)', textAlign: 'right' }}>Rejection Encounter %</th>
+                <th style={{ padding: 'var(--space-3)', textAlign: 'right' }}>Distinct Rejected Journals</th>
+                <th style={{ padding: 'var(--space-3)', textAlign: 'right' }}>Journal Prevalence</th>
                 <th style={{ padding: 'var(--space-3)', textAlign: 'center' }}>Action</th>
               </tr>
             </thead>
@@ -126,6 +129,9 @@ export const SintaAnalysisPage: React.FC<SintaAnalysisPageProps> = ({
                   <td style={{ padding: 'var(--space-3)', textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--sanguine)' }}>
                     {row.rejectedRecordMatches.toLocaleString()}
                   </td>
+                  <td style={{ padding: 'var(--space-3)', textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 600 }}>
+                    {row.rejectedJournalMatches.toLocaleString()}
+                  </td>
                   <td style={{ padding: 'var(--space-3)', textAlign: 'right', fontFamily: 'var(--font-mono)' }}>
                     {row.rejectionRate}
                   </td>
@@ -150,7 +156,13 @@ export const SintaAnalysisPage: React.FC<SintaAnalysisPageProps> = ({
                 </td>
                 <td style={{ padding: 'var(--space-3)', textAlign: 'right', fontFamily: 'var(--font-mono)' }}>100.00%</td>
                 <td style={{ padding: 'var(--space-3)', textAlign: 'right', fontFamily: 'var(--font-mono)' }}>
-                  {summary.source_record_counts.rejected.toLocaleString()} (all)
+                  {Object.entries(summary.rejected_rank_source_record_counts)
+                    .filter(([rank]) => rank !== 'unmatched' && rank !== 'ambiguous')
+                    .reduce((sum, [, count]) => sum + count, 0)
+                    .toLocaleString()} matched
+                </td>
+                <td style={{ padding: 'var(--space-3)', textAlign: 'right', fontFamily: 'var(--font-mono)' }}>
+                  {Object.values(summary.rejected_rank_unique_journal_counts).reduce((sum, count) => sum + count, 0).toLocaleString()}
                 </td>
                 <td style={{ padding: 'var(--space-3)', textAlign: 'right' }}>—</td>
                 <td style={{ padding: 'var(--space-3)' }}></td>

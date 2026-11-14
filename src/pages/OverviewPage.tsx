@@ -9,7 +9,7 @@ interface OverviewPageProps {
   onNavigateToRoute: (route: any) => void;
 }
 
-export const OverviewPage: React.FC<OverviewPageProps> = ({ onNavigateToRoute }) => {
+export const OverviewPage: React.FC<OverviewPageProps> = ({ filters, onNavigateToRoute }) => {
   const [summary, setSummary] = useState<SummaryPublic | null>(null);
   const [intersections, setIntersections] = useState<IntersectionsPublic | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -73,17 +73,17 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({ onNavigateToRoute })
         }}
       >
         <MetricCard
-          label="Total Rejection Records"
-          value={source_record_counts.rejected}
-          unit="records"
+          label={filters.metricView === 'records' ? 'Total Rejection Records' : 'Distinct Rejected Journals'}
+          value={filters.metricView === 'records' ? source_record_counts.rejected : identity_counts.rejected_resolved_journals}
+          unit={filters.metricView === 'records' ? 'records' : 'journals'}
           description={`Reconciled across ${identity_counts.rejected_resolved_journals.toLocaleString()} distinct journals`}
           provenance={`DOAJ Rejected CSV (exported ${as_of.doaj_export_utc} UTC)`}
           color="var(--sanguine)"
         />
         <MetricCard
-          label="Total Withdrawn Records"
-          value={source_record_counts.withdrawn}
-          unit="records"
+          label={filters.metricView === 'records' ? 'Total Withdrawn Records' : 'Distinct Withdrawn Journals'}
+          value={filters.metricView === 'records' ? source_record_counts.withdrawn : identity_counts.withdrawn_resolved_journals}
+          unit={filters.metricView === 'records' ? 'records' : 'journals'}
           description={`Reconciled across ${identity_counts.withdrawn_resolved_journals.toLocaleString()} distinct journals`}
           provenance={`DOAJ Withdrawn CSV (exported ${as_of.doaj_export_utc} UTC)`}
           color="var(--dark-green)"

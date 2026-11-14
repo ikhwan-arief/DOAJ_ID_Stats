@@ -1,0 +1,66 @@
+name: Regression, privacy, and Pages artifact
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out reviewed source
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install locked frontend dependencies
+        run: npm ci
+
+      - name: Reject tracked private inputs
+        shell: bash
+        run: |
+          if git ls-files 'data/raw/**' 'data/private_work/**' | grep -q .; then
+            echo 'Private input path is tracked' >&2
+            exit 1
+          fi
+
+      - name: Run Python regression tests
+        run: python -m unittest discover -s tests -v
+
+      - name: Reconcile committed exports and frontend copy
+        run: python scripts/verify_integration.py --skip-source-rebuild
+
+      - name: Run frontend integration tests
+        run: npm test
+
+      - name: Type-check frontend
+        run: npm run typecheck
+
+      - name: Build GitHub Pages-compatible artifact
+        run: npm run build
+
+      - name: Scan public exports and built bundle
+        run: python scripts/validate_public.py data/public public dist
+
+      - name: Upload tested Pages artifact without deployment
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist

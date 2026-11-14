@@ -54,6 +54,7 @@ export interface SummaryPublic {
   sinta_rank_source_record_counts: Record<string, number>;
   sinta_rank_unique_journal_counts: Record<string, number>;
   rejected_rank_source_record_counts: Record<string, number>;
+  rejected_rank_unique_journal_counts: Record<string, number>;
   venn_regions: Array<{
     region: string;
     R: boolean;
@@ -83,6 +84,8 @@ export interface FactRejectedRecord {
   strict_match_method: string | null;
   extended_match_status: 'matched' | 'unmatched' | 'ambiguous';
   extended_match_method: string | null;
+  extended_journal_id: string | null;
+  extended_sinta_rank: SintaRank;
   identity_status: 'resolved' | 'unresolved';
   sinta_rank: SintaRank;
 }
@@ -110,6 +113,8 @@ export interface FactWithdrawnRecord {
   strict_match_method: string | null;
   extended_match_status: 'matched' | 'unmatched' | 'ambiguous';
   extended_match_method: string | null;
+  extended_journal_id: string | null;
+  extended_sinta_rank: SintaRank;
   identity_status: 'resolved' | 'unresolved';
   sinta_rank: SintaRank;
 }

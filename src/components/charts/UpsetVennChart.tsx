@@ -7,13 +7,13 @@ interface UpsetChartProps {
 }
 
 export const UpsetVennChart: React.FC<UpsetChartProps> = ({ data, onSelectRegion }) => {
-  const sets = [
-    { key: 'R', label: 'DOAJ Rejected (R)', color: 'var(--sanguine)', count: 5754 },
-    { key: 'W', label: 'DOAJ Withdrawn (W)', color: 'var(--dark-green)', count: 569 },
-    { key: 'S', label: 'SINTA Population (S)', color: 'var(--mid-green)', count: 16620 },
-  ];
-
   const aggregates = data.upset_aggregates;
+  const sets = [
+    { key: 'R', label: 'DOAJ Rejected (R)', color: 'var(--sanguine)', count: aggregates.filter((item) => item.R).reduce((sum, item) => sum + item.count, 0) },
+    { key: 'W', label: 'DOAJ Withdrawn (W)', color: 'var(--dark-green)', count: aggregates.filter((item) => item.W).reduce((sum, item) => sum + item.count, 0) },
+    { key: 'S', label: 'SINTA Population (S)', color: 'var(--mid-green)', count: aggregates.filter((item) => item.S).reduce((sum, item) => sum + item.count, 0) },
+  ];
+  const universeCount = aggregates.reduce((sum, item) => sum + item.count, 0);
   const maxCount = Math.max(...aggregates.map((a) => a.count));
 
   return (
@@ -50,7 +50,7 @@ export const UpsetVennChart: React.FC<UpsetChartProps> = ({ data, onSelectRegion
             ))}
             <div style={{ borderTop: '1px dashed var(--neutral-border)', paddingTop: 'var(--space-1)', marginTop: 'var(--space-1)', display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-xs)' }}>
               <span style={{ fontStyle: 'italic', color: 'var(--dark-grey)' }}>Resolved Journal Universe:</span>
-              <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700 }}>18,370</span>
+              <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700 }}>{universeCount.toLocaleString()}</span>
             </div>
           </div>
         </div>

@@ -182,6 +182,8 @@ class DataEngine:
                     "strict_match_method": strict.method,
                     "extended_match_status": extended.status,
                     "extended_match_method": extended.method,
+                    "extended_journal_id": extended.journal_id,
+                    "extended_sinta_rank": "ambiguous" if extended.status == "ambiguous" else "unmatched",
                     "sinta_rank": "ambiguous" if strict.status == "ambiguous" else "unmatched",
                 }
                 audits.append(
@@ -255,6 +257,8 @@ class DataEngine:
         for record in fact_rejected + fact_withdrawn:
             if record["strict_match_status"] == "matched":
                 record["sinta_rank"] = resolved_rank.get(record["journal_id"], "NA")
+            if record["extended_match_status"] == "matched" and record["extended_journal_id"]:
+                record["extended_sinta_rank"] = resolved_rank.get(record["extended_journal_id"], "NA")
 
         histories_by_journal: dict[str, list[dict[str, Any]]] = defaultdict(list)
         for record in fact_rejected:
@@ -305,6 +309,11 @@ class DataEngine:
         rank_source_counts = Counter(record["sinta_rank"] for record in sinta_records)
         rank_journal_counts = Counter(resolved_rank.values())
         rejected_rank_counts = Counter(record["sinta_rank"] for record in fact_rejected)
+        rejected_journal_rank_counts = Counter(
+            resolved_rank[journal_id]
+            for journal_id in r_set & s_set
+            if journal_id in resolved_rank
+        )
         repeat_histogram = Counter(history["source_record_count"] for history in histories if history["identity_status"] == "resolved")
         summary = {
             "schema_version": SCHEMA_VERSION,
@@ -323,6 +332,10 @@ class DataEngine:
             "rejected_rank_source_record_counts": {
                 rank: rejected_rank_counts.get(rank, 0)
                 for rank in (*RANKS, "unmatched", "ambiguous")
+            },
+            "rejected_rank_unique_journal_counts": {
+                rank: rejected_journal_rank_counts.get(rank, 0)
+                for rank in (*RANKS, "ambiguous")
             },
             "repeat_record_histogram": {str(key): repeat_histogram[key] for key in sorted(repeat_histogram)},
             "repeat_record_journals": sum(history["source_record_count"] >= 2 for history in histories if history["identity_status"] == "resolved"),

@@ -26,14 +26,13 @@ export const RejectedApplicationsPage: React.FC<RejectedApplicationsPageProps> =
   const filteredRecords = useMemo(() => {
     if (!records) return [];
     return records.filter((rec) => {
-      // Matching mode filter
-      if (filters.matchingMode === 'strict' && rec.strict_match_status !== 'matched' && filters.sintaRank !== 'all' && filters.sintaRank !== 'unmatched') {
-        // Strict match only matches SINTA records when strict_match_status is matched
-      }
+      if (filters.eventKind === 'withdrawn') return false;
+      if (rec.event_year !== null && (rec.event_year < filters.yearRange[0] || rec.event_year > filters.yearRange[1])) return false;
+      const effectiveRank = filters.matchingMode === 'extended' ? rec.extended_sinta_rank : rec.sinta_rank;
 
       // SINTA rank filter
       if (filters.sintaRank !== 'all') {
-        if (rec.sinta_rank !== filters.sintaRank) {
+        if (effectiveRank !== filters.sintaRank) {
           return false;
         }
       }
@@ -138,7 +137,7 @@ export const RejectedApplicationsPage: React.FC<RejectedApplicationsPageProps> =
       </div>
 
       <Alert type="important" title="DOAJ Privacy Link Rule">
-        In compliance with project security rules, internal administration routes (e.g. <code>/admin/application/...</code>)
+        In compliance with project security rules, internal application routes
         are categorically blocked from public exports and links. Only validated public journal URLs are displayed.
       </Alert>
 
@@ -246,7 +245,7 @@ export const RejectedApplicationsPage: React.FC<RejectedApplicationsPageProps> =
                       {rec.event_day || rec.event_at_raw || '—'}
                     </td>
                     <td style={{ padding: 'var(--space-3)' }}>
-                      <RankBadge rank={rec.sinta_rank} />
+                      <RankBadge rank={filters.matchingMode === 'extended' ? rec.extended_sinta_rank : rec.sinta_rank} />
                     </td>
                     <td style={{ padding: 'var(--space-3)' }}>
                       <span className={`badge ${rec.strict_match_status === 'matched' ? 'badge-sinta' : 'badge-neutral'}`}>

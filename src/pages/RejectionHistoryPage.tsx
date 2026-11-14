@@ -34,6 +34,8 @@ export const RejectionHistoryPage: React.FC<RejectionHistoryPageProps> = ({
   const filteredHistory = useMemo(() => {
     if (!history || !dimJournals) return [];
     return history.filter((h) => {
+      if (filters.eventKind === 'withdrawn') return false;
+      if (!h.event_years.some((year) => year >= filters.yearRange[0] && year <= filters.yearRange[1])) return false;
       const dim = dimJournals.get(h.journal_id);
       const title = dim ? dim.display_title.toLowerCase() : '';
       const rank = dim ? dim.sinta_rank : 'unmatched';
