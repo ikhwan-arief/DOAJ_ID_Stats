@@ -1,7 +1,7 @@
 {
   "name": "doaj_id_stats",
   "version": "1.0.0",
-  "description": "",
+  "description": "Independent public observatory of DOAJ records and the November 2026 SINTA journal snapshot.",
   "main": "index.js",
   "directories": {
     "test": "tests"
@@ -14,8 +14,8 @@
     "test": "node --test"
   },
   "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "author": "Ikhwan Arief",
+  "license": "MIT",
   "type": "module",
   "devDependencies": {
     "@types/react": "^19.3.0",
