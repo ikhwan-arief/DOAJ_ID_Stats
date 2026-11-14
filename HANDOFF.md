@@ -155,4 +155,46 @@ Open issues/risks: Identity is intentionally conservative. Exact ISSN-signature 
 
 Contract changes proposed: None.
 
-Next owner + smallest next action: **Antigravity / WP4a** — define typed loaders for `data/public/v1/summary_public.json`, `intersections_public.json`, and the fact/dimension exports; replace synthetic page metrics incrementally while preserving the shared metric definitions and privacy boundary.
+Next owner + smallest next action: **Codex / WP5** — run end-to-end metric cross-check, recursive privacy scans, bundle and JSON payload audit, performance verification, and GitHub Actions CI + staging build configuration.
+
+## 2026-11-15 — WP4 completed
+
+Date/time: 2026-11-15 06:42 WIB (UTC+7)
+
+Agent / package: Antigravity / WP4
+
+Git branch + commit SHA: `main` / `1675eff` (`ui: implement WP4 seven production pages with validated Codex WP3 data`)
+
+Changed files (safe filenames only): `src/data/loader.ts`; `src/components/charts/UpsetVennChart.tsx`; `src/pages/OverviewPage.tsx`; `src/pages/RejectedApplicationsPage.tsx`; `src/pages/RejectionHistoryPage.tsx`; `src/pages/WithdrawnJournalsPage.tsx`; `src/pages/SintaAnalysisPage.tsx`; `src/pages/JournalExplorerPage.tsx`; `src/pages/DataQualityPage.tsx`; `src/types/index.ts`; `public/data/v1/*.json`; `tests/test_wp4_integration.test.mjs`.
+
+Completed:
+- Created async cached typed loader service (`src/data/loader.ts`) fetching schema-versioned public-safe exports from `data/v1/`.
+- Placed public JSON artifacts under `public/data/v1/` for production Vite client serving.
+- Implemented real validated metrics across all seven observatory routes without inventing or recalculating independent totals:
+  1. **OverviewPage**: Wired real baseline KPIs (8,898 Rejected records / 5,754 journals; 570 Withdrawn records / 569 journals; 16,620 SINTA census; 1,917 multi-record rejection journals). Integrated custom UpSet & Venn partition bar-matrix visualization (`UpsetVennChart.tsx`) and an accessible tabular alternative reconciling all 7 disjoint partitions exactly to the 18,370 journal universe (R 1,651; W 89; S 12,181; RW 10; RS 3,969; WS 346; RWS 124).
+  2. **RejectedApplicationsPage**: Searchable and paginated record table (50 rows/page) covering all 8,898 source rows, filtered CSV export, SINTA rank badges, strict match status indicator, and validated public journal URLs.
+  3. **RejectionHistoryPage**: Frequency distribution cards matching Codex's verified histogram (1x: 3,837; 2x: 1,219; 3x: 411; ≥4x: 287), paginated chronology directory with event days, span years, and consecutive day gaps.
+  4. **WithdrawnJournalsPage**: Directory of 570 withdrawal records, tracking delisting dates, reinstatement timestamps (64 recorded reinstatements), strict SINTA matches, and public DOAJ `/toc/...` profile links.
+  5. **SintaAnalysisPage**: Census population breakdown for S1 through S6, NA (unaccredited, 3 records), and unmatched non-SINTA journals, with official 16,620 denominator calculation and matched rejection rates.
+  6. **JournalExplorerPage**: Reconciled journal master-detail directory across 18,370 entities, showing Print/Online ISSNs, SINTA accreditation status, SINTA Editor URLs, verified public journal websites, public DOAJ `/toc/...` profile links, and chronological history of attached rejection and withdrawal events.
+  7. **DataQualityPage**: Published quality counts (19 placeholder source records, 113 same-day rejection records, 159 cross-medium candidate records, 0 strict ambiguous records, 1 extended ambiguous record), deterministic review samples, matching rules, and dataset conservation manifest.
+- Enforced all project design tokens, responsive breakpoints, Spectral / Source Sans / Source Code Pro typography, and WCAG minimum 14px text.
+- Privacy & security check: Zero occurrences of internal `/admin/application/` routes or forbidden account fields (`Owner`, `Account Name`, `Account Email`).
+
+Tests executed + actual result:
+- `npm run typecheck` (`tsc --noEmit`) — PASS; 0 errors.
+- `npm test` (`node --test`) — PASS; 11 frontend unit and integration tests passing.
+- `npm run build` (`tsc && vite build`) — PASS; client bundle built cleanly in `dist/`.
+- `python3 -m unittest discover -s tests -v` — PASS; 22 Python integration tests passing.
+- `python3 scripts/validate_public.py public/data/v1 data/public dist` — PASS; recursive privacy scanner passed with 0 violations.
+- `python3 scripts/validate_public.py --staged` and `git diff --cached --check` — PASS before commit.
+
+Privacy/data review:
+- Only public-safe, schema-validated JSON outputs, TypeScript, CSS, and test files were committed.
+- No raw CSV files, private intermediate working files, or internal administrative routes are exposed.
+
+Open issues/risks: None for WP4. Frontend is fully wired to verified public data.
+
+Contract changes proposed: None.
+
+Next owner + smallest next action: **Codex / WP5** — perform end-to-end data integrity checks, recursive privacy scans on `dist/`, verify bundle performance, and configure the GitHub Actions workflow for automated testing and GitHub Pages staging.
