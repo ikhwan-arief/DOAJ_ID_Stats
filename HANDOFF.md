@@ -69,4 +69,52 @@ Open issues/risks: WP1 establishes inspection and lossless primitives only. Full
 
 Contract changes proposed: None. Documentation-only safety normalization changed full internal-route examples to the non-clickable path form while preserving the existing policy.
 
-Next owner + smallest next action: **Antigravity / WP2** — verify the clean committed tree, then create only the accessible seven-route Vite/React shell with clearly synthetic fixtures and no raw-data access.
+Next owner + smallest next action: **Codex / WP3** — implement deterministic journal reconciliation, strict/extended ISSN matching, event chronology, repeated rejection record/date/year counts, S1–S6/NA/unmatched counts, and versioned public-safe exports.
+
+## 2026-11-15 — WP2 completed
+
+Date/time: 2026-11-15 06:30 WIB (UTC+7)
+
+Agent / package: Antigravity / WP2
+
+Git branch + commit SHA: `main` / `6e2e832` (`ui: implement React and Vite shell with DOAJ design tokens for WP2`)
+
+Changed files (safe filenames only): `.gitignore`; `package.json`; `package-lock.json`; `tsconfig.json`; `vite.config.ts`; `index.html`; `src/main.tsx`; `src/App.tsx`; `src/styles/tokens.css`; `src/types/index.ts`; `src/data/synthetic.ts`; `src/components/common/UIPrimitives.tsx`; `src/components/common/GlobalFilterBar.tsx`; `src/components/layout/Header.tsx`; `src/components/layout/Footer.tsx`; `src/components/layout/Layout.tsx`; `src/pages/OverviewPage.tsx`; `src/pages/RejectedApplicationsPage.tsx`; `src/pages/RejectionHistoryPage.tsx`; `src/pages/WithdrawnJournalsPage.tsx`; `src/pages/SintaAnalysisPage.tsx`; `src/pages/JournalExplorerPage.tsx`; `src/pages/DataQualityPage.tsx`; `src/vite-env.d.ts`; `tests/test_ui_shell.test.mjs`.
+
+Completed:
+- Verified WP1 commit and clean tree.
+- Built React 19 + TypeScript + Vite responsive frontend architecture.
+- Implemented full CSS design tokens adhering strictly to DOAJ Manuscript specification (`--warm-black`, `--dark-grey`, `--light-grey`, `--white`, `--sanguine`, `--grapefruit`, `--salmon`, `--dark-green`, `--mid-green`, `--light-green`, `--yellow`, `--neutral-border`).
+- Configured typography scale for Spectral (headings/display/KPIs), Source Sans 3 (body/controls), and Source Code Pro (ISSNs), ensuring a hard minimum font size constraint of 14px (`0.875rem`).
+- Created accessible layout with skip-to-content link, 44x44px minimum interactive touch targets, mobile navigation drawer, and explicit independent analytical observatory branding in English without official DOAJ logo or implied endorsement.
+- Implemented all seven navigable routes via hash-based routing compatible with GitHub Pages deep-linking and reload:
+  1. `OverviewPage`: KPI cards, 3-set intersection partitions table (UpSet/Venn accessible tabular alternative), and observational framework.
+  2. `RejectedApplicationsPage`: searchable record-level table, date/rank attributes, CSV export, and public profile links.
+  3. `RejectionHistoryPage`: recurrence distribution (1x, 2x, 3x, >=4x), dated event timelines, and same-day repeat resilience.
+  4. `WithdrawnJournalsPage`: withdrawal records, delisting dates, reinstatement flags, and status interpretation safeguards.
+  5. `SintaAnalysisPage`: S1 through S6, NA (unaccredited), and unmatched census denominators (16,620 baseline).
+  6. `JournalExplorerPage`: reconciled journal dossier, ISSN media pairs, public DOAJ `/toc/...` profile links, SINTA Editor URLs, and linked event timeline.
+  7. `DataQualityPage`: documentation of placeholder ISSN preservation (`XXXX-XXXX`, `0000-0XXX`), deterministic matching modes, and dataset manifest.
+- Used strictly synthetic test fixtures for WP2 scaffolding; no raw DOAJ or SINTA CSV records were read, moved, or serialized into frontend code.
+- Enforced DOAJ link policy: public `/toc/...` profile links allowed, internal `/admin/application/...` paths categorically blocked.
+
+Tests executed + actual result:
+- `npm run typecheck` (`tsc --noEmit`) — PASS; 0 errors.
+- `npm run build` (`tsc && vite build`) — PASS; production client build generated in `dist/`.
+- `npm test` (`node --test`) — PASS; 6 frontend unit assertions passing (DOAJ tokens, 7 routes, privacy scanner, placeholder retention, independent branding).
+- `python3 -m unittest discover -s tests -v` — PASS; 14 Python unit tests passing.
+- `python3 scripts/validate_public.py` — PASS; recursive privacy scan passed.
+- `python3 scripts/validate_public.py --staged` and `git diff --cached --check` — PASS before implementation commit.
+
+Privacy/data review:
+- Staged only reviewable TypeScript, CSS, HTML, and configuration files.
+- Zero raw CSV files or private directories (`data/raw/`, `data/private_work/`) touched or included in frontend assets.
+- Node modules added to `.gitignore`.
+- Automated test asserted no internal `/admin/application/` URLs exist in `src/`.
+
+Open issues/risks:
+- Real analytics and Venn/UpSet partitions will be wired up in WP4 after Codex finishes the deterministic matching and data engine in WP3.
+
+Contract changes proposed: None.
+
+Next owner + smallest next action: **Codex / WP3** — read contracts and implement the deterministic journal reconciler, strict/extended ISSN matching with ambiguity detection, repeat frequency chronology, SINTA rank mapping, and versioned public-safe exports.
