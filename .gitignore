@@ -1,0 +1,35 @@
+# Private source data and working intermediates
+data/raw/
+data/private_work/
+
+# Local secrets and environment configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+credentials*.json
+secrets*.json
+
+# Python local state
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+
+# Local diagnostics and generated build artifacts
+*.log
+diagnostics/
+dist/
+build/
+*.zip
+
+# Editor and operating-system files
+.DS_Store
+.idea/
+.vscode/

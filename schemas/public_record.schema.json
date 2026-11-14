@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/doaj-sinta-observatory/public-record.schema.json",
+  "title": "DOAJ x SINTA Observatory public source record",
+  "type": "object",
+  "required": [
+    "source_dataset",
+    "source_record_id",
+    "p_issn_raw",
+    "e_issn_raw",
+    "p_issn_quality",
+    "e_issn_quality"
+  ],
+  "properties": {
+    "source_dataset": {
+      "enum": ["rejected", "withdrawn", "sinta"]
+    },
+    "source_record_id": {
+      "type": "string",
+      "pattern": "^(rejected|withdrawn|sinta):[0-9]{8}$"
+    },
+    "p_issn_raw": {"type": "string"},
+    "e_issn_raw": {"type": "string"},
+    "p_issn_normalized": {"type": ["string", "null"]},
+    "e_issn_normalized": {"type": ["string", "null"]},
+    "p_issn_quality": {"$ref": "#/$defs/issnQuality"},
+    "e_issn_quality": {"$ref": "#/$defs/issnQuality"}
+  },
+  "$defs": {
+    "issnQuality": {
+      "enum": [
+        "checksum_valid",
+        "format_only",
+        "placeholder",
+        "invalid_format",
+        "missing",
+        "ambiguous"
+      ]
+    }
+  }
+}

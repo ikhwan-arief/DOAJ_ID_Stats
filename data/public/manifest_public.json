@@ -1,0 +1,34 @@
+{
+  "ingested_at": "2026-11-14T23:21:17Z",
+  "schema_version": "0.1.0",
+  "source_dates": {
+    "doaj_export_utc": "2026-11-14",
+    "sinta_snapshot": "2026-11-15"
+  },
+  "sources": [
+    {
+      "column_count": 53,
+      "encoding": "utf-8-sig",
+      "header_sha256": "6121bf798a43815e444aee5cd08587b9504333500123741af68ec416b60954f0",
+      "row_count": 8898,
+      "sha256": "4a5bbe8f2cd83df9a9c414a0de8338129efa7b9357c78933b1dbc2a135a2ac52",
+      "source_name": "rejected"
+    },
+    {
+      "column_count": 59,
+      "encoding": "utf-8-sig",
+      "header_sha256": "da02c4eaa2341c8ccd8963575847a21925d8a6835362accffceda7d79b3b3d3a",
+      "row_count": 570,
+      "sha256": "a81c257f0e78aa436383586a6ba18a9564805c60b5256135d0b6c6fd8feba501",
+      "source_name": "withdrawn"
+    },
+    {
+      "column_count": 17,
+      "encoding": "utf-8-sig",
+      "header_sha256": "bab0abc252b3defb9670cdfc53851ef34c0b43f9cc98b3d54c850d08868e05e1",
+      "row_count": 16620,
+      "sha256": "9c1c4f71d960739acdfa00556a9ce8309de3897613e81e1c8cb7f8b72af378c6",
+      "source_name": "sinta"
+    }
+  ]
+}
