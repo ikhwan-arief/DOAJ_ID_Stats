@@ -1,7 +1,7 @@
-import React from 'react';
-import { SYNTHETIC_JOURNALS } from '../data/synthetic';
-import { RankBadge, Alert } from '../components/common/UIPrimitives';
-import { GlobalFilterState } from '../types';
+import React, { useEffect, useState, useMemo } from 'react';
+import { loadRejectionHistory, loadDimJournals, loadSummary } from '../data/loader';
+import { RejectionHistoryRecord, DimJournalRecord, SummaryPublic, GlobalFilterState } from '../types';
+import { RankBadge, Alert, LoadingState } from '../components/common/UIPrimitives';
 
 interface RejectionHistoryPageProps {
   filters: GlobalFilterState;
@@ -12,23 +12,81 @@ export const RejectionHistoryPage: React.FC<RejectionHistoryPageProps> = ({
   filters,
   onSelectJournal,
 }) => {
-  // Filter journals that have at least one rejection
-  const journalsWithRejections = React.useMemo(() => {
-    return SYNTHETIC_JOURNALS.filter((j) => {
-      if (j.total_rejections === 0) return false;
+  const [history, setHistory] = useState<RejectionHistoryRecord[] | null>(null);
+  const [dimJournals, setDimJournals] = useState<Map<string, DimJournalRecord> | null>(null);
+  const [summary, setSummary] = useState<SummaryPublic | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const pageSize = 50;
+
+  useEffect(() => {
+    Promise.all([loadRejectionHistory(), loadDimJournals(), loadSummary()])
+      .then(([hist, dims, summ]) => {
+        setHistory(hist);
+        const map = new Map<string, DimJournalRecord>();
+        dims.forEach((d) => map.set(d.journal_id, d));
+        setDimJournals(map);
+        setSummary(summ);
+      })
+      .catch((err) => setError(err.message || 'Failed to load rejection history'));
+  }, []);
+
+  const filteredHistory = useMemo(() => {
+    if (!history || !dimJournals) return [];
+    return history.filter((h) => {
+      const dim = dimJournals.get(h.journal_id);
+      const title = dim ? dim.display_title.toLowerCase() : '';
+      const rank = dim ? dim.sinta_rank : 'unmatched';
+
+      // SINTA rank filter
+      if (filters.sintaRank !== 'all') {
+        if (rank !== filters.sintaRank) {
+          return false;
+        }
+      }
+
+      // Search query
       if (filters.searchQuery) {
         const q = filters.searchQuery.toLowerCase();
-        const matchTitle = j.title.toLowerCase().includes(q);
-        const matchIssn =
-          j.p_issn_raw.toLowerCase().includes(q) || j.e_issn_raw.toLowerCase().includes(q);
-        if (!matchTitle && !matchIssn) return false;
+        const matchTitle = title.includes(q);
+        const matchId = h.journal_id.toLowerCase().includes(q);
+        if (!matchTitle && !matchId) {
+          return false;
+        }
       }
-      if (filters.sintaRank !== 'all' && j.sinta_rank !== filters.sintaRank) {
-        return false;
-      }
+
       return true;
     });
+  }, [history, dimJournals, filters]);
+
+  useEffect(() => {
+    setCurrentPage(1);
   }, [filters]);
+
+  const totalPages = Math.ceil(filteredHistory.length / pageSize) || 1;
+  const pagedHistory = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredHistory.slice(start, start + pageSize);
+  }, [filteredHistory, currentPage]);
+
+  if (error) {
+    return <Alert type="warning" title="Error Loading Rejection History">{error}</Alert>;
+  }
+
+  if (!history || !dimJournals || !summary) {
+    return <LoadingState message="Loading rejection recurrence and chronology data (5,754 journals)..." />;
+  }
+
+  // Frequency distribution from verified histogram in summary_public.json
+  const hist = summary.repeat_record_histogram;
+  const singleCount = hist['1'] || 0;
+  const twoCount = hist['2'] || 0;
+  const threeCount = hist['3'] || 0;
+  const fourPlusCount = Object.entries(hist)
+    .filter(([k]) => parseInt(k, 10) >= 4)
+    .reduce((sum, [, count]) => sum + count, 0);
+
+  const totalJournals = summary.identity_counts.rejected_resolved_journals; // 5,754
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
@@ -53,13 +111,13 @@ export const RejectionHistoryPage: React.FC<RejectionHistoryPageProps> = ({
         </p>
       </div>
 
-      <Alert type="note" title="Analytical Principle: Repeated Records vs Intentional Resubmission">
-        Multiple rejection records attached to a journal identifier document sequential procedural outcomes.
-        They do not automatically prove intentional re-applications or editorial policy changes without independent
-        application metadata.
+      <Alert type="note" title="Analytical Rigor: Records vs Decisions">
+        Multiple rejection records attached to a journal identifier document sequential procedural events
+        ({summary.repeat_record_journals.toLocaleString()} journals have ≥2 records; {summary.repeat_date_journals.toLocaleString()} on distinct dates).
+        They do not automatically imply intentional re-applications or editorial misconduct.
       </Alert>
 
-      {/* Frequency Distribution Summary Cards */}
+      {/* Frequency Distribution Summary Cards (Verified Invariants) */}
       <div
         style={{
           display: 'grid',
@@ -72,45 +130,76 @@ export const RejectionHistoryPage: React.FC<RejectionHistoryPageProps> = ({
             Single Rejection (1x)
           </span>
           <div style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--text-2xl)', fontWeight: 700, margin: '4px 0' }}>
-            5,480
+            {singleCount.toLocaleString()}
           </div>
-          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)' }}>79.4% of rejected journals</span>
+          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)' }}>
+            {((singleCount / totalJournals) * 100).toFixed(1)}% of rejected journals
+          </span>
         </div>
         <div className="card" style={{ borderLeft: '4px solid var(--grapefruit)' }}>
           <span style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)', fontWeight: 600 }}>
             Two Rejections (2x)
           </span>
           <div style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--text-2xl)', fontWeight: 700, margin: '4px 0' }}>
-            1,050
+            {twoCount.toLocaleString()}
           </div>
-          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)' }}>15.2% of rejected journals</span>
+          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)' }}>
+            {((twoCount / totalJournals) * 100).toFixed(1)}% of rejected journals
+          </span>
         </div>
         <div className="card" style={{ borderLeft: '4px solid var(--salmon)' }}>
           <span style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)', fontWeight: 600 }}>
             Three Rejections (3x)
           </span>
           <div style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--text-2xl)', fontWeight: 700, margin: '4px 0' }}>
-            290
+            {threeCount.toLocaleString()}
           </div>
-          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)' }}>4.2% of rejected journals</span>
+          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)' }}>
+            {((threeCount / totalJournals) * 100).toFixed(1)}% of rejected journals
+          </span>
         </div>
         <div className="card" style={{ borderLeft: '4px solid var(--warm-black)' }}>
           <span style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)', fontWeight: 600 }}>
             Four+ Rejections (≥4x)
           </span>
           <div style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--text-2xl)', fontWeight: 700, margin: '4px 0' }}>
-            80
+            {fourPlusCount.toLocaleString()}
           </div>
-          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)' }}>1.2% high-recurrence journals</span>
+          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)' }}>
+            {((fourPlusCount / totalJournals) * 100).toFixed(1)}% high-recurrence journals
+          </span>
         </div>
       </div>
 
       {/* Recurrence Directory Table */}
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-        <div style={{ padding: 'var(--space-3) var(--space-4)', backgroundColor: 'var(--light-grey)', borderBottom: '1px solid var(--neutral-border)' }}>
-          <h3 style={{ fontSize: 'var(--text-base)', margin: 0 }}>
-            Journals with Recorded Rejections & Chronological Event Timelines
-          </h3>
+        <div style={{ padding: 'var(--space-3) var(--space-4)', backgroundColor: 'var(--light-grey)', borderBottom: '1px solid var(--neutral-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ fontSize: 'var(--text-sm)', fontWeight: 600 }}>
+            Showing {filteredHistory.length.toLocaleString()} journals with rejection histories (Page {currentPage} of {totalPages})
+          </span>
+          <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{ padding: '4px 10px', minHeight: '32px', fontSize: 'var(--text-xs)' }}
+              disabled={currentPage <= 1}
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+            >
+              Previous
+            </button>
+            <span style={{ fontSize: 'var(--text-xs)', fontFamily: 'var(--font-mono)' }}>
+              {currentPage} / {totalPages}
+            </span>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{ padding: '4px 10px', minHeight: '32px', fontSize: 'var(--text-xs)' }}
+              disabled={currentPage >= totalPages}
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+            >
+              Next
+            </button>
+          </div>
         </div>
 
         <div style={{ overflowX: 'auto' }}>
@@ -124,95 +213,118 @@ export const RejectionHistoryPage: React.FC<RejectionHistoryPageProps> = ({
           >
             <thead>
               <tr style={{ borderBottom: '2px solid var(--neutral-border)', backgroundColor: 'var(--white)' }}>
-                <th style={{ padding: 'var(--space-3)' }}>Journal Title</th>
-                <th style={{ padding: 'var(--space-3)' }}>P-ISSN / E-ISSN</th>
+                <th style={{ padding: 'var(--space-3)' }}>Journal Identifier & Title</th>
                 <th style={{ padding: 'var(--space-3)' }}>SINTA Rank</th>
-                <th style={{ padding: 'var(--space-3)', textAlign: 'center' }}>Total Rejections</th>
-                <th style={{ padding: 'var(--space-3)' }}>Dated Rejection Timeline</th>
-                <th style={{ padding: 'var(--space-3)' }}>Actions</th>
+                <th style={{ padding: 'var(--space-3)', textAlign: 'center' }}>Total Records</th>
+                <th style={{ padding: 'var(--space-3)', textAlign: 'center' }}>Distinct Days</th>
+                <th style={{ padding: 'var(--space-3)', textAlign: 'center' }}>Span Years</th>
+                <th style={{ padding: 'var(--space-3)' }}>Event Dates</th>
+                <th style={{ padding: 'var(--space-3)' }}>Day Gaps</th>
+                <th style={{ padding: 'var(--space-3)' }}>Action</th>
               </tr>
             </thead>
             <tbody>
-              {journalsWithRejections.map((j) => (
-                <tr key={j.journal_id} style={{ borderBottom: '1px solid var(--light-grey)' }}>
-                  <td style={{ padding: 'var(--space-3)', fontWeight: 600 }}>
-                    <button
-                      type="button"
-                      onClick={() => onSelectJournal(j.journal_id)}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        padding: 0,
-                        textAlign: 'left',
-                        color: 'var(--warm-black)',
-                        cursor: 'pointer',
-                        fontWeight: 600,
-                        textDecoration: 'underline',
-                        fontSize: 'var(--text-sm)',
-                      }}
-                    >
-                      {j.title}
-                    </button>
-                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)', fontWeight: 'normal' }}>
-                      {j.publisher}
-                    </div>
-                  </td>
-                  <td style={{ padding: 'var(--space-3)', fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)' }}>
-                    <div>P: {j.p_issn_raw || '—'}</div>
-                    <div>E: {j.e_issn_raw || '—'}</div>
-                  </td>
-                  <td style={{ padding: 'var(--space-3)' }}>
-                    <RankBadge rank={j.sinta_rank} />
-                  </td>
-                  <td style={{ padding: 'var(--space-3)', textAlign: 'center' }}>
-                    <span
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        width: '28px',
-                        height: '28px',
-                        borderRadius: '50%',
-                        backgroundColor: j.total_rejections > 1 ? 'var(--sanguine-10)' : 'var(--warm-black-05)',
-                        color: j.total_rejections > 1 ? 'var(--sanguine)' : 'var(--warm-black)',
-                        fontWeight: 700,
-                        fontFamily: 'var(--font-mono)',
-                      }}
-                    >
-                      {j.total_rejections}
-                    </span>
-                  </td>
-                  <td style={{ padding: 'var(--space-3)' }}>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                      {j.rejection_dates.map((date, idx) => (
-                        <span
-                          key={idx}
-                          style={{
-                            backgroundColor: 'var(--light-grey)',
-                            border: '1px solid var(--neutral-border)',
-                            borderRadius: 'var(--radius-sm)',
-                            padding: '2px 6px',
-                            fontSize: 'var(--text-xs)',
-                            fontFamily: 'var(--font-mono)',
-                          }}
-                        >
-                          {date}
-                        </span>
-                      ))}
-                    </div>
-                  </td>
-                  <td style={{ padding: 'var(--space-3)' }}>
-                    <button
-                      type="button"
-                      className="btn btn-secondary"
-                      style={{ padding: '2px 8px', minHeight: '30px', fontSize: 'var(--text-xs)' }}
-                      onClick={() => onSelectJournal(j.journal_id)}
-                    >
-                      Full Details
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {pagedHistory.map((h) => {
+                const dim = dimJournals.get(h.journal_id);
+                const title = dim ? dim.display_title : 'Unknown Title';
+                const rank = dim ? dim.sinta_rank : 'unmatched';
+
+                return (
+                  <tr key={h.journal_id} style={{ borderBottom: '1px solid var(--light-grey)' }}>
+                    <td style={{ padding: 'var(--space-3)', fontWeight: 600 }}>
+                      <button
+                        type="button"
+                        onClick={() => onSelectJournal(h.journal_id)}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          padding: 0,
+                          textAlign: 'left',
+                          color: 'var(--warm-black)',
+                          cursor: 'pointer',
+                          fontWeight: 600,
+                          textDecoration: 'underline',
+                          fontSize: 'var(--text-sm)',
+                        }}
+                      >
+                        {title}
+                      </button>
+                      <div style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)', fontFamily: 'var(--font-mono)' }}>
+                        {h.journal_id}
+                      </div>
+                    </td>
+                    <td style={{ padding: 'var(--space-3)' }}>
+                      <RankBadge rank={rank} />
+                    </td>
+                    <td style={{ padding: 'var(--space-3)', textAlign: 'center' }}>
+                      <span
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          minWidth: '28px',
+                          height: '28px',
+                          padding: '0 6px',
+                          borderRadius: '14px',
+                          backgroundColor: h.source_record_count > 1 ? 'var(--sanguine-10)' : 'var(--warm-black-05)',
+                          color: h.source_record_count > 1 ? 'var(--sanguine)' : 'var(--warm-black)',
+                          fontWeight: 700,
+                          fontFamily: 'var(--font-mono)',
+                        }}
+                      >
+                        {h.source_record_count}
+                      </span>
+                    </td>
+                    <td style={{ padding: 'var(--space-3)', textAlign: 'center', fontFamily: 'var(--font-mono)' }}>
+                      {h.distinct_event_day_count}
+                    </td>
+                    <td style={{ padding: 'var(--space-3)', textAlign: 'center', fontFamily: 'var(--font-mono)' }}>
+                      {h.distinct_event_year_count}
+                    </td>
+                    <td style={{ padding: 'var(--space-3)' }}>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', maxWidth: '300px' }}>
+                        {h.event_days.slice(0, 4).map((d, idx) => (
+                          <span
+                            key={idx}
+                            style={{
+                              backgroundColor: 'var(--light-grey)',
+                              border: '1px solid var(--neutral-border)',
+                              borderRadius: 'var(--radius-sm)',
+                              padding: '2px 6px',
+                              fontSize: 'var(--text-xs)',
+                              fontFamily: 'var(--font-mono)',
+                            }}
+                          >
+                            {d}
+                          </span>
+                        ))}
+                        {h.event_days.length > 4 && (
+                          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)' }}>
+                            +{h.event_days.length - 4} more
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td style={{ padding: 'var(--space-3)', fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)' }}>
+                      {h.consecutive_day_gaps.length > 0 ? (
+                        <span>{h.consecutive_day_gaps.join(', ')}d</span>
+                      ) : (
+                        <span style={{ color: 'var(--dark-grey)' }}>—</span>
+                      )}
+                    </td>
+                    <td style={{ padding: 'var(--space-3)' }}>
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        style={{ padding: '2px 8px', minHeight: '30px', fontSize: 'var(--text-xs)' }}
+                        onClick={() => onSelectJournal(h.journal_id)}
+                      >
+                        Profile
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

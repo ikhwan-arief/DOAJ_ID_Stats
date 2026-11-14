@@ -1,7 +1,7 @@
-import React from 'react';
-import { SYNTHETIC_JOURNALS } from '../data/synthetic';
-import { RankBadge } from '../components/common/UIPrimitives';
-import { GlobalFilterState, SyntheticJournalRecord } from '../types';
+import React, { useEffect, useState, useMemo } from 'react';
+import { loadDimJournals, loadFactRejected, loadFactWithdrawn, loadSintaSnapshot } from '../data/loader';
+import { DimJournalRecord, FactRejectedRecord, FactWithdrawnRecord, SintaSnapshotRecord, GlobalFilterState } from '../types';
+import { RankBadge, Alert, LoadingState } from '../components/common/UIPrimitives';
 
 interface JournalExplorerPageProps {
   filters: GlobalFilterState;
@@ -14,30 +14,93 @@ export const JournalExplorerPage: React.FC<JournalExplorerPageProps> = ({
   selectedJournalId,
   onSelectJournal,
 }) => {
-  const filteredJournals = React.useMemo(() => {
-    return SYNTHETIC_JOURNALS.filter((j) => {
-      if (filters.searchQuery) {
-        const q = filters.searchQuery.toLowerCase();
-        const matchTitle = j.title.toLowerCase().includes(q);
-        const matchIssn =
-          j.p_issn_raw.toLowerCase().includes(q) || j.e_issn_raw.toLowerCase().includes(q);
-        const matchPub = j.publisher.toLowerCase().includes(q);
-        if (!matchTitle && !matchIssn && !matchPub) return false;
-      }
+  const [journals, setJournals] = useState<DimJournalRecord[] | null>(null);
+  const [rejections, setRejections] = useState<FactRejectedRecord[] | null>(null);
+  const [withdrawns, setWithdrawns] = useState<FactWithdrawnRecord[] | null>(null);
+  const [sintas, setSintas] = useState<Map<string, SintaSnapshotRecord> | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    Promise.all([loadDimJournals(), loadFactRejected(), loadFactWithdrawn(), loadSintaSnapshot()])
+      .then(([dim, rej, withdr, sintaList]) => {
+        setJournals(dim);
+        setRejections(rej);
+        setWithdrawns(withdr);
+        const map = new Map<string, SintaSnapshotRecord>();
+        sintaList.forEach((s) => map.set(s.journal_id, s));
+        setSintas(map);
+      })
+      .catch((err) => setError(err.message || 'Failed to load journal explorer data'));
+  }, []);
+
+  const filteredJournals = useMemo(() => {
+    if (!journals) return [];
+    return journals.filter((j) => {
+      // Prioritize journals with DOAJ activity for exploration relevance
+      if (filters.eventKind === 'rejected' && !j.in_rejected) return false;
+      if (filters.eventKind === 'withdrawn' && !j.in_withdrawn) return false;
+
       if (filters.sintaRank !== 'all' && j.sinta_rank !== filters.sintaRank) {
         return false;
       }
+
+      if (filters.searchQuery) {
+        const q = filters.searchQuery.toLowerCase();
+        const matchTitle = j.display_title.toLowerCase().includes(q);
+        const matchId = j.journal_id.toLowerCase().includes(q);
+        if (!matchTitle && !matchId) return false;
+      }
+
       return true;
     });
-  }, [filters]);
+  }, [journals, filters]);
 
-  const activeJournal: SyntheticJournalRecord = React.useMemo(() => {
+  // Active journal selection
+  const activeJournal = useMemo(() => {
+    if (!journals || journals.length === 0) return null;
     if (selectedJournalId) {
-      const found = SYNTHETIC_JOURNALS.find((j) => j.journal_id === selectedJournalId);
+      const found = journals.find((j) => j.journal_id === selectedJournalId);
       if (found) return found;
     }
-    return filteredJournals[0] || SYNTHETIC_JOURNALS[0];
-  }, [selectedJournalId, filteredJournals]);
+    // Default to first filtered journal that has either rejection or withdrawal
+    const firstActive = filteredJournals.find((j) => j.in_rejected || j.in_withdrawn) || filteredJournals[0];
+    return firstActive || journals[0];
+  }, [selectedJournalId, journals, filteredJournals]);
+
+  // Associated event records
+  const journalRejections = useMemo(() => {
+    if (!activeJournal || !rejections) return [];
+    return rejections.filter((r) => r.journal_id === activeJournal.journal_id);
+  }, [activeJournal, rejections]);
+
+  const journalWithdrawns = useMemo(() => {
+    if (!activeJournal || !withdrawns) return [];
+    return withdrawns.filter((w) => w.journal_id === activeJournal.journal_id);
+  }, [activeJournal, withdrawns]);
+
+  const activeSinta = useMemo(() => {
+    if (!activeJournal || !sintas) return null;
+    return sintas.get(activeJournal.journal_id) || null;
+  }, [activeJournal, sintas]);
+
+  // Resolve best available ISSNs and URLs from associated records
+  const sampleRej = journalRejections[0];
+  const sampleWith = journalWithdrawns[0];
+
+  const pIssn = activeSinta?.p_issn_raw || sampleRej?.p_issn_raw || sampleWith?.p_issn_raw || '—';
+  const eIssn = activeSinta?.e_issn_raw || sampleRej?.e_issn_raw || sampleWith?.e_issn_raw || '—';
+
+  const journalWebUrl = activeSinta?.website_url || sampleRej?.journal_url || sampleWith?.journal_url;
+  const sintaEditorUrl = activeSinta?.editor_url;
+  const doajProfileUrl = sampleWith?.doaj_profile_url; // Validated /toc/... profile URL only
+
+  if (error) {
+    return <Alert type="warning" title="Error Loading Journal Explorer">{error}</Alert>;
+  }
+
+  if (!journals || !rejections || !withdrawns || !sintas) {
+    return <LoadingState message="Loading reconciled journal identities (18,370 resolved entities)..." />;
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
@@ -57,8 +120,9 @@ export const JournalExplorerPage: React.FC<JournalExplorerPageProps> = ({
           Journal Explorer & Reconciled Identity Dossier
         </h2>
         <p style={{ color: 'var(--dark-grey)', maxWidth: '900px' }}>
-          Detailed profile of reconciled scholarly journals. Inspect ISSN media pairs, accreditation status,
-          verified public URLs (including SINTA Editor URLs and public DOAJ profiles), and associated historical event timelines.
+          Detailed profile of reconciled scholarly journals ({journals.length.toLocaleString()} resolved entities).
+          Inspect ISSN media pairs, accreditation status, verified public URLs (including SINTA Editor URLs and public DOAJ profiles),
+          and linked application event timelines.
         </p>
       </div>
 
@@ -80,11 +144,11 @@ export const JournalExplorerPage: React.FC<JournalExplorerPageProps> = ({
             }}
           >
             <h3 style={{ fontSize: 'var(--text-base)', margin: 0 }}>
-              Reconciled Journals ({filteredJournals.length})
+              Reconciled Journals ({filteredJournals.length.toLocaleString()})
             </h3>
           </div>
-          <div style={{ maxHeight: '600px', overflowY: 'auto' }}>
-            {filteredJournals.map((j) => {
+          <div style={{ maxHeight: '640px', overflowY: 'auto' }}>
+            {filteredJournals.slice(0, 100).map((j) => {
               const isSelected = activeJournal && activeJournal.journal_id === j.journal_id;
               return (
                 <button
@@ -105,23 +169,25 @@ export const JournalExplorerPage: React.FC<JournalExplorerPageProps> = ({
                   }}
                 >
                   <div style={{ fontWeight: 600, fontSize: 'var(--text-sm)', color: 'var(--warm-black)' }}>
-                    {j.title}
+                    {j.display_title}
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginTop: '4px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginTop: '4px', flexWrap: 'wrap' }}>
                     <RankBadge rank={j.sinta_rank} />
                     <span style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)', fontFamily: 'var(--font-mono)' }}>
-                      {j.e_issn_raw || j.p_issn_raw || 'No ISSN'}
+                      {j.journal_id}
                     </span>
-                    {j.total_rejections > 0 && (
-                      <span className="badge badge-rejected">{j.total_rejections} rejections</span>
-                    )}
-                    {j.total_withdrawals > 0 && (
-                      <span className="badge badge-withdrawn">{j.total_withdrawals} withdrawn</span>
-                    )}
+                    {j.in_rejected && <span className="badge badge-rejected">Rejected Record</span>}
+                    {j.in_withdrawn && <span className="badge badge-withdrawn">Withdrawn</span>}
+                    {j.in_sinta && <span className="badge badge-sinta">SINTA Census</span>}
                   </div>
                 </button>
               );
             })}
+            {filteredJournals.length > 100 && (
+              <div style={{ padding: 'var(--space-3)', textAlign: 'center', fontSize: 'var(--text-xs)', color: 'var(--dark-grey)', backgroundColor: 'var(--light-grey)' }}>
+                Showing top 100 matches. Use search filter above to narrow specific titles or ISSNs.
+              </div>
+            )}
           </div>
         </div>
 
@@ -135,19 +201,18 @@ export const JournalExplorerPage: React.FC<JournalExplorerPageProps> = ({
                     Reconciled Journal ID: {activeJournal.journal_id}
                   </span>
                   <h3 style={{ fontSize: 'var(--text-xl)', marginTop: '4px', marginBottom: 'var(--space-2)' }}>
-                    {activeJournal.title}
+                    {activeJournal.display_title}
                   </h3>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
                     <RankBadge rank={activeJournal.sinta_rank} />
                     <span style={{ fontSize: 'var(--text-sm)', color: 'var(--dark-grey)' }}>
-                      Publisher: <strong>{activeJournal.publisher}</strong> ({activeJournal.country})
+                      National Accreditation Status: <strong>{activeJournal.sinta_rank}</strong>
                     </span>
                   </div>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
-                  <span className="badge badge-neutral">Match: {activeJournal.match_method}</span>
-                  <span style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)' }}>
-                    Quality: {activeJournal.issn_quality}
+                  <span className="badge badge-neutral">
+                    {activeJournal.journal_id.startsWith('sinta:') ? 'SINTA Identity Key' : 'DOAJ Record Key'}
                   </span>
                 </div>
               </div>
@@ -166,19 +231,19 @@ export const JournalExplorerPage: React.FC<JournalExplorerPageProps> = ({
                 <div>
                   <span style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)', fontWeight: 600 }}>Print ISSN (P-ISSN)</span>
                   <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)', fontWeight: 600, marginTop: '2px' }}>
-                    {activeJournal.p_issn_raw || '—'}
+                    {pIssn}
                   </div>
                 </div>
                 <div>
                   <span style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)', fontWeight: 600 }}>Online ISSN (E-ISSN)</span>
                   <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)', fontWeight: 600, marginTop: '2px' }}>
-                    {activeJournal.e_issn_raw || '—'}
+                    {eIssn}
                   </div>
                 </div>
                 <div>
-                  <span style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)', fontWeight: 600 }}>Subjects</span>
+                  <span style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)', fontWeight: 600 }}>Subject Area</span>
                   <div style={{ fontSize: 'var(--text-xs)', marginTop: '2px' }}>
-                    {activeJournal.subjects.join(', ') || 'Unspecified'}
+                    {activeSinta?.subject_area || 'Not recorded in SINTA'}
                   </div>
                 </div>
               </div>
@@ -199,9 +264,9 @@ export const JournalExplorerPage: React.FC<JournalExplorerPageProps> = ({
                 <span style={{ fontSize: 'var(--text-xs)', fontWeight: 700, color: 'var(--warm-black)' }}>
                   Validated Public Links:
                 </span>
-                {activeJournal.public_journal_url && (
+                {journalWebUrl && (
                   <a
-                    href={activeJournal.public_journal_url}
+                    href={journalWebUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="btn btn-secondary"
@@ -210,9 +275,9 @@ export const JournalExplorerPage: React.FC<JournalExplorerPageProps> = ({
                     Public Journal Website ↗
                   </a>
                 )}
-                {activeJournal.editor_url && (
+                {sintaEditorUrl && (
                   <a
-                    href={activeJournal.editor_url}
+                    href={sintaEditorUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="btn btn-secondary"
@@ -221,9 +286,9 @@ export const JournalExplorerPage: React.FC<JournalExplorerPageProps> = ({
                     SINTA Editor Team Link ↗
                   </a>
                 )}
-                {activeJournal.doaj_profile_url ? (
+                {doajProfileUrl ? (
                   <a
-                    href={activeJournal.doaj_profile_url}
+                    href={doajProfileUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="btn btn-accent"
@@ -242,18 +307,18 @@ export const JournalExplorerPage: React.FC<JournalExplorerPageProps> = ({
             {/* Historical Events Timeline for this journal */}
             <div className="card">
               <h4 style={{ fontSize: 'var(--text-md)', marginBottom: 'var(--space-3)' }}>
-                Recorded Event History for this Journal
+                Recorded Event History ({journalRejections.length + journalWithdrawns.length} total events)
               </h4>
 
-              {activeJournal.rejection_dates.length === 0 && !activeJournal.last_withdrawn_date ? (
+              {journalRejections.length === 0 && journalWithdrawns.length === 0 ? (
                 <p style={{ fontSize: 'var(--text-sm)', color: 'var(--dark-grey)' }}>
                   No historical rejection or withdrawal records attached to this journal identifier.
                 </p>
               ) : (
                 <ul style={{ listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-                  {activeJournal.rejection_dates.map((date, idx) => (
+                  {journalRejections.map((rej, idx) => (
                     <li
-                      key={`rej-${idx}`}
+                      key={rej.source_record_id}
                       style={{
                         padding: 'var(--space-2) var(--space-3)',
                         backgroundColor: 'var(--sanguine-10)',
@@ -265,16 +330,20 @@ export const JournalExplorerPage: React.FC<JournalExplorerPageProps> = ({
                         fontSize: 'var(--text-sm)',
                       }}
                     >
-                      <span>
-                        <strong>Rejection Record #{idx + 1}:</strong> Application outcome logged
-                      </span>
+                      <div>
+                        <strong>Rejection Record #{idx + 1}:</strong> {rej.source_record_id}
+                        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)' }}>
+                          Match Status: {rej.strict_match_status} ({rej.strict_match_method || 'no match'})
+                        </div>
+                      </div>
                       <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', fontWeight: 600 }}>
-                        {date}
+                        {rej.event_day || rej.event_at_raw || '—'}
                       </span>
                     </li>
                   ))}
-                  {activeJournal.last_withdrawn_date && (
+                  {journalWithdrawns.map((w) => (
                     <li
+                      key={w.source_record_id}
                       style={{
                         padding: 'var(--space-2) var(--space-3)',
                         backgroundColor: 'var(--dark-green-10)',
@@ -286,19 +355,19 @@ export const JournalExplorerPage: React.FC<JournalExplorerPageProps> = ({
                         fontSize: 'var(--text-sm)',
                       }}
                     >
-                      <span>
-                        <strong>Withdrawal Record:</strong> Delisting date from DOAJ index
-                        {activeJournal.last_reinstated_date && (
+                      <div>
+                        <strong>Withdrawal Record:</strong> {w.source_record_id}
+                        {w.last_reinstated_day && (
                           <span style={{ color: 'var(--dark-green)', marginLeft: '6px' }}>
-                            (Reinstated: {activeJournal.last_reinstated_date})
+                            (Reinstated: {w.last_reinstated_day})
                           </span>
                         )}
-                      </span>
+                      </div>
                       <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', fontWeight: 600 }}>
-                        {activeJournal.last_withdrawn_date}
+                        {w.last_withdrawn_day || w.last_withdrawn_date_raw || '—'}
                       </span>
                     </li>
-                  )}
+                  ))}
                 </ul>
               )}
             </div>

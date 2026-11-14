@@ -1,7 +1,30 @@
-import React from 'react';
-import { Alert } from '../components/common/UIPrimitives';
+import React, { useEffect, useState } from 'react';
+import { loadDataQuality, loadSummary } from '../data/loader';
+import { DataQualityPublic, SummaryPublic } from '../types';
+import { Alert, LoadingState } from '../components/common/UIPrimitives';
 
 export const DataQualityPage: React.FC = () => {
+  const [quality, setQuality] = useState<DataQualityPublic | null>(null);
+  const [summary, setSummary] = useState<SummaryPublic | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    Promise.all([loadDataQuality(), loadSummary()])
+      .then(([q, s]) => {
+        setQuality(q);
+        setSummary(s);
+      })
+      .catch((err) => setError(err.message || 'Failed to load data quality datasets'));
+  }, []);
+
+  if (error) {
+    return <Alert type="warning" title="Error Loading Data Quality">{error}</Alert>;
+  }
+
+  if (!quality || !summary) {
+    return <LoadingState message="Loading data quality and integrity metrics..." />;
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
       <div>
@@ -25,11 +48,65 @@ export const DataQualityPage: React.FC = () => {
         </p>
       </div>
 
-      <Alert type="note" title="Auditability Statement">
+      <Alert type="note" title="Auditability & Quality Statement">
         All data transformation scripts adhere to zero-loss source row conservation. Raw inputs are permanently
         excluded from frontend codebases and version control. Public exports enforce strict schema validation
         and automated privacy audits.
       </Alert>
+
+      {/* Quality Counts Metrics Strip */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+          gap: 'var(--space-3)',
+        }}
+      >
+        <div className="card" style={{ borderLeft: '4px solid var(--sanguine)' }}>
+          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)', fontWeight: 600 }}>
+            Placeholder Source Records
+          </span>
+          <div style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--text-2xl)', fontWeight: 700, margin: '4px 0' }}>
+            {quality.quality_counts.placeholder_source_records}
+          </div>
+          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)' }}>
+            Preserved verbatim (e.g. XXXX-XXXX)
+          </span>
+        </div>
+        <div className="card" style={{ borderLeft: '4px solid var(--grapefruit)' }}>
+          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)', fontWeight: 600 }}>
+            Same-Day Repeated Rejections
+          </span>
+          <div style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--text-2xl)', fontWeight: 700, margin: '4px 0' }}>
+            {quality.quality_counts.same_day_rejected_records}
+          </div>
+          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)' }}>
+            Same journal & day event records
+          </span>
+        </div>
+        <div className="card" style={{ borderLeft: '4px solid var(--mid-green)' }}>
+          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)', fontWeight: 600 }}>
+            Cross-Medium Candidates
+          </span>
+          <div style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--text-2xl)', fontWeight: 700, margin: '4px 0' }}>
+            {quality.quality_counts.cross_medium_candidate_records}
+          </div>
+          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)' }}>
+            Extended match candidates
+          </span>
+        </div>
+        <div className="card" style={{ borderLeft: '4px solid var(--warm-black)' }}>
+          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)', fontWeight: 600 }}>
+            Strict Ambiguous Records
+          </span>
+          <div style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--text-2xl)', fontWeight: 700, margin: '4px 0' }}>
+            {quality.quality_counts.strict_ambiguous_records}
+          </div>
+          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)' }}>
+            Zero collisions in strict mode
+          </span>
+        </div>
+      </div>
 
       {/* Protocol Sections Grid */}
       <div
@@ -61,10 +138,11 @@ export const DataQualityPage: React.FC = () => {
           <p style={{ fontSize: 'var(--text-sm)', color: 'var(--dark-grey)', lineHeight: 1.6 }}>
             <strong>Strict Matching:</strong> Requires exact medium-to-medium correspondence (Print-to-Print or
             Online-to-Online) using normalized 8-character hyphenated ISSNs with valid modulus 11 checksums.
+            Strict results yield {summary.strict_match_status_counts.matched.toLocaleString()} matched and{' '}
+            {summary.strict_match_status_counts.unmatched.toLocaleString()} unmatched DOAJ records.
             <br /><br />
             <strong>Extended Matching:</strong> Permits cross-medium alignment (Print-to-Online or Online-to-Print)
-            when unambiguous. Collisions or conflicting title assignments are isolated as <code className="font-mono">ambiguous</code> and
-            excluded from automated multi-set merges.
+            when unambiguous. Exactly {quality.quality_counts.extended_ambiguous_records} extended record is tagged as ambiguous.
           </p>
         </section>
 
@@ -112,7 +190,7 @@ export const DataQualityPage: React.FC = () => {
               <tr style={{ borderBottom: '2px solid var(--neutral-border)', backgroundColor: 'var(--light-grey)' }}>
                 <th style={{ padding: 'var(--space-2) var(--space-3)' }}>Source Logical Label</th>
                 <th style={{ padding: 'var(--space-2) var(--space-3)' }}>Baseline Source Rows</th>
-                <th style={{ padding: 'var(--space-2) var(--space-3)' }}>Source Columns</th>
+                <th style={{ padding: 'var(--space-2) var(--space-3)' }}>Reconciled Unique Journals</th>
                 <th style={{ padding: 'var(--space-2) var(--space-3)' }}>Export / Snapshot Date</th>
                 <th style={{ padding: 'var(--space-2) var(--space-3)' }}>Integrity Verification</th>
               </tr>
@@ -120,23 +198,35 @@ export const DataQualityPage: React.FC = () => {
             <tbody>
               <tr style={{ borderBottom: '1px solid var(--light-grey)' }}>
                 <td style={{ padding: 'var(--space-2) var(--space-3)', fontWeight: 600 }}>DOAJ Rejected Applications</td>
-                <td style={{ padding: 'var(--space-2) var(--space-3)', fontFamily: 'var(--font-mono)' }}>8,898</td>
-                <td style={{ padding: 'var(--space-2) var(--space-3)', fontFamily: 'var(--font-mono)' }}>53</td>
-                <td style={{ padding: 'var(--space-2) var(--space-3)' }}>2026-11-14 22:08:29 UTC</td>
+                <td style={{ padding: 'var(--space-2) var(--space-3)', fontFamily: 'var(--font-mono)' }}>
+                  {summary.source_record_counts.rejected.toLocaleString()}
+                </td>
+                <td style={{ padding: 'var(--space-2) var(--space-3)', fontFamily: 'var(--font-mono)' }}>
+                  {summary.identity_counts.rejected_resolved_journals.toLocaleString()}
+                </td>
+                <td style={{ padding: 'var(--space-2) var(--space-3)' }}>{summary.as_of.doaj_export_utc} UTC</td>
                 <td style={{ padding: 'var(--space-2) var(--space-3)', color: 'var(--mid-green)', fontWeight: 600 }}>100% Conserved</td>
               </tr>
               <tr style={{ borderBottom: '1px solid var(--light-grey)' }}>
                 <td style={{ padding: 'var(--space-2) var(--space-3)', fontWeight: 600 }}>DOAJ Last Withdrawn</td>
-                <td style={{ padding: 'var(--space-2) var(--space-3)', fontFamily: 'var(--font-mono)' }}>570</td>
-                <td style={{ padding: 'var(--space-2) var(--space-3)', fontFamily: 'var(--font-mono)' }}>59</td>
-                <td style={{ padding: 'var(--space-2) var(--space-3)' }}>2026-11-14 22:08:52 UTC</td>
+                <td style={{ padding: 'var(--space-2) var(--space-3)', fontFamily: 'var(--font-mono)' }}>
+                  {summary.source_record_counts.withdrawn.toLocaleString()}
+                </td>
+                <td style={{ padding: 'var(--space-2) var(--space-3)', fontFamily: 'var(--font-mono)' }}>
+                  {summary.identity_counts.withdrawn_resolved_journals.toLocaleString()}
+                </td>
+                <td style={{ padding: 'var(--space-2) var(--space-3)' }}>{summary.as_of.doaj_export_utc} UTC</td>
                 <td style={{ padding: 'var(--space-2) var(--space-3)', color: 'var(--mid-green)', fontWeight: 600 }}>100% Conserved</td>
               </tr>
               <tr style={{ borderBottom: '1px solid var(--light-grey)' }}>
                 <td style={{ padding: 'var(--space-2) var(--space-3)', fontWeight: 600 }}>SINTA National Database</td>
-                <td style={{ padding: 'var(--space-2) var(--space-3)', fontFamily: 'var(--font-mono)' }}>16,620</td>
-                <td style={{ padding: 'var(--space-2) var(--space-3)', fontFamily: 'var(--font-mono)' }}>17</td>
-                <td style={{ padding: 'var(--space-2) var(--space-3)' }}>2026-11-15 (Final Census)</td>
+                <td style={{ padding: 'var(--space-2) var(--space-3)', fontFamily: 'var(--font-mono)' }}>
+                  {summary.source_record_counts.sinta.toLocaleString()}
+                </td>
+                <td style={{ padding: 'var(--space-2) var(--space-3)', fontFamily: 'var(--font-mono)' }}>
+                  {summary.identity_counts.sinta_journals.toLocaleString()}
+                </td>
+                <td style={{ padding: 'var(--space-2) var(--space-3)' }}>{summary.as_of.sinta_snapshot} (Final Census)</td>
                 <td style={{ padding: 'var(--space-2) var(--space-3)', color: 'var(--mid-green)', fontWeight: 600 }}>100% Conserved</td>
               </tr>
             </tbody>

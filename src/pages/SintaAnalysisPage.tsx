@@ -1,6 +1,7 @@
-import React from 'react';
-import { RankBadge, Alert } from '../components/common/UIPrimitives';
-import { GlobalFilterState } from '../types';
+import React, { useEffect, useState } from 'react';
+import { loadSummary } from '../data/loader';
+import { SummaryPublic, GlobalFilterState } from '../types';
+import { RankBadge, Alert, LoadingState } from '../components/common/UIPrimitives';
 
 interface SintaAnalysisPageProps {
   filters?: GlobalFilterState;
@@ -10,17 +11,43 @@ interface SintaAnalysisPageProps {
 export const SintaAnalysisPage: React.FC<SintaAnalysisPageProps> = ({
   onSelectRank,
 }) => {
-  // Synthetic rank distribution covering S1-S6, NA, and unmatched
-  const rankDistributions = [
-    { rank: 'S1', totalSinta: 142, rejectedMatches: 18, withdrawnMatches: 8, rejectionRate: '12.7%' },
-    { rank: 'S2', totalSinta: 1240, rejectedMatches: 310, withdrawnMatches: 65, rejectionRate: '25.0%' },
-    { rank: 'S3', totalSinta: 3450, rejectedMatches: 820, withdrawnMatches: 110, rejectionRate: '23.8%' },
-    { rank: 'S4', totalSinta: 4890, rejectedMatches: 1120, withdrawnMatches: 145, rejectionRate: '22.9%' },
-    { rank: 'S5', totalSinta: 3980, rejectedMatches: 540, withdrawnMatches: 52, rejectionRate: '13.6%' },
-    { rank: 'S6', totalSinta: 1120, rejectedMatches: 82, withdrawnMatches: 10, rejectionRate: '7.3%' },
-    { rank: 'NA', totalSinta: 1798, rejectedMatches: 210, withdrawnMatches: 42, rejectionRate: '11.7%' },
-    { rank: 'unmatched', totalSinta: 0, rejectedMatches: 5798, withdrawnMatches: 138, rejectionRate: '—' },
-  ];
+  const [summary, setSummary] = useState<SummaryPublic | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    loadSummary()
+      .then((s) => setSummary(s))
+      .catch((err) => setError(err.message || 'Failed to load summary dataset'));
+  }, []);
+
+  if (error) {
+    return <Alert type="warning" title="Error Loading SINTA Analysis">{error}</Alert>;
+  }
+
+  if (!summary) {
+    return <LoadingState message="Loading national SINTA population census..." />;
+  }
+
+  // Exact SINTA census numbers from Codex WP3 summary
+  const sintaTotal = summary.source_record_counts.sinta; // 16,620
+  const sintaRanks = ['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'NA', 'unmatched'];
+
+  const sintaRows = sintaRanks.map((rank) => {
+    const sintaCount = summary.sinta_rank_unique_journal_counts[rank] || 0;
+    const rejectedRecordMatches = summary.rejected_rank_source_record_counts[rank] || 0;
+    const percentage = sintaCount > 0 ? ((sintaCount / sintaTotal) * 100).toFixed(2) : '—';
+    const rejectionRate = sintaCount > 0
+      ? `${((rejectedRecordMatches / sintaCount) * 100).toFixed(1)}%`
+      : '—';
+
+    return {
+      rank,
+      sintaCount,
+      percentage,
+      rejectedRecordMatches,
+      rejectionRate,
+    };
+  });
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
@@ -41,13 +68,13 @@ export const SintaAnalysisPage: React.FC<SintaAnalysisPageProps> = ({
         </h2>
         <p style={{ color: 'var(--dark-grey)', maxWidth: '900px' }}>
           Comprehensive analysis across all national accreditation tiers (SINTA 1 through 6), unaccredited journals (NA),
-          and unmatched non-SINTA journals. Denominators explicitly state population baselines from the 15 Nov 2026 census.
+          and unmatched non-SINTA journals. Denominators explicitly state population baselines from the 15 Nov 2026 census (16,620 total journals).
         </p>
       </div>
 
       <Alert type="note" title="Denominator Clarification">
-        Percentages are calculated using the verified November 2026 SINTA population (16,620 total journals) as the denominator
-        for national accreditation tiers. Rejection and withdrawal counts represent journals matched through deterministic ISSN protocols.
+        Percentages are calculated using the verified November 2026 SINTA census ({sintaTotal.toLocaleString()} total journals)
+        as the official denominator. Rejection counts represent applications matched to these journals under strict ISSN reconciliation.
       </Alert>
 
       {/* Grid of Accreditation Tiers */}
@@ -72,36 +99,32 @@ export const SintaAnalysisPage: React.FC<SintaAnalysisPageProps> = ({
                 <th style={{ padding: 'var(--space-3)' }}>SINTA Tier</th>
                 <th style={{ padding: 'var(--space-3)', textAlign: 'right' }}>Total Journals in SINTA</th>
                 <th style={{ padding: 'var(--space-3)', textAlign: 'right' }}>% of SINTA Census</th>
-                <th style={{ padding: 'var(--space-3)', textAlign: 'right' }}>Matched Rejections</th>
-                <th style={{ padding: 'var(--space-3)', textAlign: 'right' }}>Matched Withdrawals</th>
+                <th style={{ padding: 'var(--space-3)', textAlign: 'right' }}>Matched Rejection Records</th>
                 <th style={{ padding: 'var(--space-3)', textAlign: 'right' }}>Rejection Encounter %</th>
                 <th style={{ padding: 'var(--space-3)', textAlign: 'center' }}>Action</th>
               </tr>
             </thead>
             <tbody>
-              {rankDistributions.map((row) => (
+              {sintaRows.map((row) => (
                 <tr key={row.rank} style={{ borderBottom: '1px solid var(--light-grey)' }}>
                   <td style={{ padding: 'var(--space-3)' }}>
                     <RankBadge rank={row.rank} />
                     <span style={{ marginLeft: 'var(--space-2)', fontWeight: 600 }}>
                       {row.rank === 'NA'
-                        ? 'Not Accredited'
+                        ? 'Not Accredited (NA)'
                         : row.rank === 'unmatched'
-                        ? 'Outside SINTA'
+                        ? 'Outside SINTA Database'
                         : `SINTA ${row.rank.slice(1)}`}
                     </span>
                   </td>
                   <td style={{ padding: 'var(--space-3)', textAlign: 'right', fontFamily: 'var(--font-mono)' }}>
-                    {row.totalSinta ? row.totalSinta.toLocaleString() : '—'}
+                    {row.sintaCount ? row.sintaCount.toLocaleString() : '—'}
                   </td>
                   <td style={{ padding: 'var(--space-3)', textAlign: 'right', fontFamily: 'var(--font-mono)', color: 'var(--dark-grey)' }}>
-                    {row.totalSinta ? `${((row.totalSinta / 16620) * 100).toFixed(1)}%` : '—'}
+                    {row.percentage === '—' ? '—' : `${row.percentage}%`}
                   </td>
                   <td style={{ padding: 'var(--space-3)', textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--sanguine)' }}>
-                    {row.rejectedMatches.toLocaleString()}
-                  </td>
-                  <td style={{ padding: 'var(--space-3)', textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--dark-green)' }}>
-                    {row.withdrawnMatches.toLocaleString()}
+                    {row.rejectedRecordMatches.toLocaleString()}
                   </td>
                   <td style={{ padding: 'var(--space-3)', textAlign: 'right', fontFamily: 'var(--font-mono)' }}>
                     {row.rejectionRate}
@@ -121,11 +144,14 @@ export const SintaAnalysisPage: React.FC<SintaAnalysisPageProps> = ({
             </tbody>
             <tfoot>
               <tr style={{ backgroundColor: 'var(--warm-black-05)', fontWeight: 700, borderTop: '2px solid var(--neutral-border)' }}>
-                <td style={{ padding: 'var(--space-3)' }}>Total Census SINTA</td>
-                <td style={{ padding: 'var(--space-3)', textAlign: 'right', fontFamily: 'var(--font-mono)' }}>16,620</td>
-                <td style={{ padding: 'var(--space-3)', textAlign: 'right', fontFamily: 'var(--font-mono)' }}>100.0%</td>
-                <td style={{ padding: 'var(--space-3)', textAlign: 'right', fontFamily: 'var(--font-mono)' }}>8,898 (all)</td>
-                <td style={{ padding: 'var(--space-3)', textAlign: 'right', fontFamily: 'var(--font-mono)' }}>570 (all)</td>
+                <td style={{ padding: 'var(--space-3)' }}>Total SINTA Census</td>
+                <td style={{ padding: 'var(--space-3)', textAlign: 'right', fontFamily: 'var(--font-mono)' }}>
+                  {sintaTotal.toLocaleString()}
+                </td>
+                <td style={{ padding: 'var(--space-3)', textAlign: 'right', fontFamily: 'var(--font-mono)' }}>100.00%</td>
+                <td style={{ padding: 'var(--space-3)', textAlign: 'right', fontFamily: 'var(--font-mono)' }}>
+                  {summary.source_record_counts.rejected.toLocaleString()} (all)
+                </td>
                 <td style={{ padding: 'var(--space-3)', textAlign: 'right' }}>—</td>
                 <td style={{ padding: 'var(--space-3)' }}></td>
               </tr>
