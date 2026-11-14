@@ -304,6 +304,7 @@ class DataEngine:
 
         rank_source_counts = Counter(record["sinta_rank"] for record in sinta_records)
         rank_journal_counts = Counter(resolved_rank.values())
+        rejected_rank_counts = Counter(record["sinta_rank"] for record in fact_rejected)
         repeat_histogram = Counter(history["source_record_count"] for history in histories if history["identity_status"] == "resolved")
         summary = {
             "schema_version": SCHEMA_VERSION,
@@ -319,7 +320,10 @@ class DataEngine:
             "extended_match_status_counts": dict(sorted(Counter(audit["extended_status"] for audit in audits).items())),
             "sinta_rank_source_record_counts": {rank: rank_source_counts.get(rank, 0) for rank in RANKS},
             "sinta_rank_unique_journal_counts": {rank: rank_journal_counts.get(rank, 0) for rank in (*RANKS, "ambiguous")},
-            "rejected_rank_source_record_counts": dict(sorted(Counter(record["sinta_rank"] for record in fact_rejected).items())),
+            "rejected_rank_source_record_counts": {
+                rank: rejected_rank_counts.get(rank, 0)
+                for rank in (*RANKS, "unmatched", "ambiguous")
+            },
             "repeat_record_histogram": {str(key): repeat_histogram[key] for key in sorted(repeat_histogram)},
             "repeat_record_journals": sum(history["source_record_count"] >= 2 for history in histories if history["identity_status"] == "resolved"),
             "repeat_date_journals": sum(history["distinct_event_day_count"] >= 2 for history in histories if history["identity_status"] == "resolved"),
@@ -339,6 +343,45 @@ class DataEngine:
             }
             for journal_id in sorted((r_set | w_set | s_set) | unresolved_ids)
         ]
+        placeholder_ids = [
+            record["source_record_id"]
+            for record in fact_rejected + fact_withdrawn + sinta_records
+            if "placeholder" in {record["p_issn_quality"], record["e_issn_quality"]}
+        ]
+        cross_medium_ids = [
+            audit["source_record_id"] for audit in audits
+            if audit["strict_status"] == "unmatched" and audit["extended_status"] in {"matched", "ambiguous"}
+        ]
+        repeated_timestamp_ids = []
+        for records in histories_by_journal.values():
+            day_counts = Counter(record["event_day"] for record in records if record["event_day"])
+            repeated_timestamp_ids.extend(
+                record["source_record_id"] for record in records
+                if record["event_day"] and day_counts[record["event_day"]] > 1
+            )
+        data_quality = {
+            "schema_version": SCHEMA_VERSION,
+            "review_samples_are_source_ids_only": True,
+            "quality_counts": {
+                "placeholder_source_records": len(placeholder_ids),
+                "cross_medium_candidate_records": len(cross_medium_ids),
+                "same_day_rejected_records": len(repeated_timestamp_ids),
+                "strict_ambiguous_records": sum(audit["strict_status"] == "ambiguous" for audit in audits),
+                "extended_ambiguous_records": sum(audit["extended_status"] == "ambiguous" for audit in audits),
+            },
+            "deterministic_review_samples": {
+                "strict_matches": [audit["source_record_id"] for audit in audits if audit["strict_status"] == "matched"][:10],
+                "placeholder_records": placeholder_ids[:10],
+                "cross_medium_candidates": cross_medium_ids[:10],
+                "same_day_rejected_records": repeated_timestamp_ids[:10],
+            },
+            "limitations": [
+                "Record identity is not evidence of a distinct application or decision.",
+                "Cross-medium matches are excluded from strict headline metrics.",
+                "Placeholder-only ISSNs never establish journal identity.",
+                "SINTA ranks describe the 2026-11-15 snapshot, not historical rank.",
+            ],
+        }
         return {
             "fact_rejected_public.json": fact_rejected,
             "fact_withdrawn_public.json": fact_withdrawn,
@@ -347,6 +390,7 @@ class DataEngine:
             "match_audit_public.json": audits,
             "rejection_history_public.json": histories,
             "intersections_public.json": {"venn_regions": regions, "upset_aggregates": regions, "unresolved_journal_ids": sorted(unresolved_ids)},
+            "data_quality_public.json": data_quality,
             "summary_public.json": summary,
             "_source_metadata": [item.public_dict() for item in metadata],
         }

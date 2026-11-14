@@ -50,6 +50,9 @@ class EngineIntegrationTests(unittest.TestCase):
         self.assertEqual(tuple(counts), RANKS)
         self.assertEqual(sum(counts.values()), 16_620)
         self.assertTrue(all(counts[rank] >= 0 for rank in RANKS))
+        rejected_counts = summary["rejected_rank_source_record_counts"]
+        self.assertEqual(tuple(rejected_counts), (*RANKS, "unmatched", "ambiguous"))
+        self.assertEqual(sum(rejected_counts.values()), 8_898)
 
     def test_intersection_regions_are_exact_and_reconcile(self) -> None:
         data = self.outputs["intersections_public.json"]
@@ -88,6 +91,13 @@ class EngineIntegrationTests(unittest.TestCase):
         self.assertEqual(len(audits), 8_898 + 570)
         self.assertEqual(len(audits), len({record["source_record_id"] for record in audits}))
         self.assertTrue(all(record["strict_method"] in {"e_to_e", "p_to_p_fallback", "no_usable_issn"} for record in audits))
+
+    def test_data_quality_samples_contain_only_safe_record_ids(self) -> None:
+        report = self.outputs["data_quality_public.json"]
+        self.assertTrue(report["review_samples_are_source_ids_only"])
+        for samples in report["deterministic_review_samples"].values():
+            self.assertLessEqual(len(samples), 10)
+            self.assertTrue(all(value.split(":", 1)[0] in {"rejected", "withdrawn", "sinta"} for value in samples))
 
 
 if __name__ == "__main__":
