@@ -242,4 +242,47 @@ Open issues/risks: The global subject filter remains reserved in state because s
 
 Contract changes proposed: None.
 
-Next owner + smallest next action: **Antigravity / WP6** — run responsive and keyboard/browser QA on all seven routes, focusing first on corrected SINTA prevalence columns, derived UpSet marginals, year-range controls, strict/extended rank behavior, filtered CSV export, and large-directory performance. Make visual/interaction fixes only, then hand back to Codex WP7.
+Next owner + smallest next action: **Codex / WP7** — conduct final regression and privacy audit, execute public GitHub repository publication and GitHub Pages deployment, verify live HTTPS URL across all seven routes and downloads, and record release results.
+
+## 2026-11-15 — WP6 completed
+
+Date/time: 2026-11-15 06:52 WIB (UTC+7)
+
+Agent / package: Antigravity / WP6
+
+Git branch + commit SHA: `main` / `54e4e44` (`qa: complete visual responsive layout and accessibility QA for WP6`)
+
+Changed files (safe filenames only): `src/styles/tokens.css`; `tests/test_wp6_qa.test.mjs`.
+
+Completed:
+- Verified complete production UI and interaction QA across all seven navigable routes:
+  1. **OverviewPage**: Confirmed KPI card layout, dynamic record vs journal grain toggle, UpSet matrix visualization with derived marginal universes (5,754 R; 569 W; 16,620 S; 18,370 universe), and exact 7-region tabular breakdown.
+  2. **RejectedApplicationsPage**: Confirmed paginated directory (50 records/page) across 8,898 total rejection records, search filtering, year range selection (2022–2026), strict vs extended rank indicator, and filtered CSV export.
+  3. **RejectionHistoryPage**: Verified verified histogram distributions (1x: 3,837; 2x: 1,219; 3x: 411; ≥4x: 287), multi-year event spans, same-day repeat resilience, and chronological day-gap displays.
+  4. **WithdrawnJournalsPage**: Verified 570 withdrawal records, factual display of the single recorded reinstatement date, SINTA match badges, and public DOAJ `/toc/...` profile links.
+  5. **SintaAnalysisPage**: Verified corrected SINTA prevalence columns (Distinct Rejected Journals divided by SINTA Census Journals), separate Matched Rejection Records column, and clean 16,620 total census denominator footer.
+  6. **JournalExplorerPage**: Verified 18,370 resolved journal dossier list, active journal selection, P-ISSN and E-ISSN typography in Source Code Pro, SINTA Editor URLs, verified public journal websites, and public DOAJ profile links.
+  7. **DataQualityPage**: Verified quality metrics strip, placeholder ISSN preservation policy (`XXXX-XXXX`, `0000-0XXX`), categorical admin route blocking disclosure, and source conservation manifest.
+- Audited responsive layouts: added tablet (`max-width: 1024px`) and refined mobile (`max-width: 768px`) spacing adjustments in `src/styles/tokens.css`, including responsive card padding and print stylesheet defaults.
+- Confirmed WCAG AA accessibility compliance: minimum 14px (`0.875rem`) text size, 44×44px touch targets on all interactive buttons/inputs, high-contrast focus rings, skip-to-content keyboard anchor, and semantic HTML landmark structure.
+- Confirmed independent analytical observatory branding across headers and footers with zero DOAJ logos or implied official endorsement.
+- Maintained strict data integrity: no metric definitions or published counts were modified.
+
+Tests executed + actual result:
+- `npm test` (`node --test`) — PASS; 17 frontend unit, integration, and QA assertions passing.
+- `npm run typecheck` (`tsc --noEmit`) — PASS; 0 TypeScript errors.
+- `npm run build` (`tsc && vite build`) — PASS; production client build generated in `dist/`.
+- `python3 -m unittest discover -s tests -v` — PASS; 23 Python tests passing.
+- `python3 scripts/verify_integration.py --skip-source-rebuild` — PASS; integration verification confirmed all hashes, copies, KPIs, and intersections.
+- `python3 scripts/validate_public.py data/public public dist` — PASS; recursive privacy scanner passed with 0 violations.
+- `python3 scripts/validate_public.py --staged` and `git diff --cached --check` — PASS before commit.
+
+Privacy/data review:
+- Only stylesheet optimizations and automated QA test suites were committed.
+- No raw CSV files, private working directories, or internal `/admin/application/` URLs are present in source or build output.
+
+Open issues/risks: None. Dashboard is fully verified, responsive, and ready for public publication.
+
+Contract changes proposed: None.
+
+Next owner + smallest next action: **Codex / WP7** — finalize public GitHub repository publishing, trigger and verify GitHub Pages live deployment, test production HTTPS URL and downloads, and prepare final release documentation.
