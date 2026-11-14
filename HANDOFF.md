@@ -1,12 +1,12 @@
 # Agent Handoff Log
 
-**Project state:** WP5 integration, regression/privacy CI, and non-deploying Pages artifact build completed locally. **No GitHub publication performed.**
+**Project state:** **DEPLOYMENT BLOCKED** pending GitHub CLI device authorization for `ikhwan-arief`. WP7 release commit and all local gates pass; no GitHub publication has occurred.
 
 ## Current task
-- Next owner: **Antigravity**
-- Work package: **WP6**
-- Goal: perform visual, responsive, keyboard, accessibility, and interaction QA over the verified WP5 build.
-- Prerequisites: preserve WP5 metric/privacy invariants; do not change analytical contracts silently.
+- Next owner: **Codex**
+- Work package: **WP7 — resume after GitHub authorization**
+- Goal: create/push the public repository, enable Actions-based Pages, deploy, and verify the live unauthenticated site.
+- Prerequisites: complete `gh auth login -h github.com` for the intended `ikhwan-arief` account.
 
 ## Handoff template (append a new entry after each task)
 ```text
@@ -286,3 +286,40 @@ Open issues/risks: None. Dashboard is fully verified, responsive, and ready for 
 Contract changes proposed: None.
 
 Next owner + smallest next action: **Codex / WP7** — finalize public GitHub repository publishing, trigger and verify GitHub Pages live deployment, test production HTTPS URL and downloads, and prepare final release documentation.
+
+## 2026-11-15 — WP7 deployment blocked pending GitHub authorization
+
+Date/time: 2026-11-15 07:00 WIB (UTC+7)
+
+Agent / package: Codex / WP7 production release
+
+Git branch + release-preparation commit SHA: `main` / `782a833` (`ci: prepare gated GitHub Pages production release`)
+
+Changed files (safe filenames only): `.github/workflows/ci.yml`; `README.md`; `LICENSE`; `package.json`; `package-lock.json`.
+
+Completed:
+- Added the production Pages deployment job, gated on the complete verification job and restricted to pushes to reviewed `main`.
+- Added release/reproduction, data-granularity, privacy, provenance, CI, licensing, and independent-project documentation.
+- Confirmed the deploy job uses only `pages: write` and `id-token: write`; the verification job retains read-only repository permission.
+- Re-ran all source, analytical, frontend, accessibility, build, and privacy gates on the release tree.
+
+Tests executed + actual result:
+- `npm ci` — PASS; locked dependency installation completed.
+- `python3 -m unittest discover -s tests -v` — PASS; 23 tests.
+- `python3 scripts/verify_integration.py` — PASS; full local-source reconciliation for 8,898 Rejected / 570 Withdrawn / 16,620 SINTA rows and every committed export.
+- `python3 scripts/verify_integration.py --skip-source-rebuild` — PASS; public CI reconciliation mode.
+- `npm run typecheck` — PASS; 0 errors.
+- `npm test` — PASS; 17 tests.
+- `npm run build` — PASS; 30 modules; JS 302.37 kB / 84.10 kB gzip.
+- `python3 scripts/validate_public.py data/public public dist` — PASS.
+- `python3 scripts/validate_public.py --staged`, `git diff --cached --check`, and `git diff --check` — PASS.
+
+Privacy/data review: Raw inputs and private work remain ignored and untracked. Canonical exports, frontend copies, production bundles, downloads, staging, and history contain no real credentials, personal account data, or full internal application URLs. The previously documented fictional detector marker is not a credential and is absent as a contiguous value from the release tree.
+
+Blocking condition: `gh auth status` reports that the configured `ikhwan-arief` token is invalid. A GitHub CLI device login was initiated and is awaiting account-owner authorization. No browser-control surface is available on this machine. The indispensable user action is to complete the pending GitHub device authorization (or run `gh auth login -h github.com` for `ikhwan-arief`).
+
+Release status: **DEPLOYMENT BLOCKED — NOT DONE.** No remote, repository URL, live dashboard URL, workflow run, or deployed SHA can be truthfully recorded until authentication succeeds.
+
+Contract changes proposed: None.
+
+Next owner + smallest next action: **Codex / WP7 resume** — confirm `gh auth status`, create public repository `ikhwan-arief/DOAJ_ID_Stats`, push `main`, configure Pages source to GitHub Actions, wait for the gated workflow, and verify the live HTTPS dashboard across all seven routes and downloads.
