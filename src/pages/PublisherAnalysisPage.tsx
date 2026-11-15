@@ -486,7 +486,7 @@ export const PublisherAnalysisPage: React.FC<PublisherAnalysisPageProps> = ({
 
   if (loading) {
     return (
-      <div style={{ padding: 'var(--space-8) 0' }}>
+      <div style={{ padding: 'var(--space-4) 0' }}>
         <LoadingState message="Loading publisher intelligence and directory..." />
       </div>
     );
@@ -494,7 +494,7 @@ export const PublisherAnalysisPage: React.FC<PublisherAnalysisPageProps> = ({
 
   if (error || !summary || !publishers) {
     return (
-      <div style={{ padding: 'var(--space-8) 0' }}>
+      <div style={{ padding: 'var(--space-4) 0' }}>
         <Alert
           type="warning"
           title="Publisher Analysis Unavailable"
@@ -506,104 +506,107 @@ export const PublisherAnalysisPage: React.FC<PublisherAnalysisPageProps> = ({
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)', paddingBottom: 'var(--space-12)' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
       {/* Route Header */}
       <div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-          <span className="badge badge-neutral" style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            Observatory Dashboard • Route 7
-          </span>
-          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)' }}>
-            Snapshot Observation: 15 November 2026
-          </span>
-        </div>
-        <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--text-2xl)', color: 'var(--warm-black)', margin: 'var(--space-1) 0' }}>
+        <span
+          style={{
+            fontSize: 'var(--text-xs)',
+            textTransform: 'uppercase',
+            color: 'var(--sanguine)',
+            fontWeight: 700,
+            letterSpacing: '0.05em',
+          }}
+        >
+          Route 7 • Publisher Directory & Institutional Portfolios
+        </span>
+        <h2 style={{ marginTop: 'var(--space-1)', marginBottom: 'var(--space-2)' }}>
           Publisher Intelligence & Publisher Directory
         </h2>
-        <p style={{ fontSize: 'var(--text-sm)', color: 'var(--dark-grey)', maxWidth: '900px', lineHeight: 1.5, margin: 0 }}>
+        <p style={{ color: 'var(--dark-grey)', maxWidth: '900px' }}>
           Comprehensive institutional and commercial publisher intelligence derived from authoritative DOAJ archives (2022–2026) and national SINTA registry reconciliation.
           Explore resolved publishing entities, historical event patterns, and linked journal portfolios.
         </p>
       </div>
 
       {/* KPI Overview Cards (6 Core Headline Metrics) */}
-      <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 'var(--space-4)' }}>
-        <div className="card" style={{ padding: 'var(--space-4)', borderTop: '4px solid var(--dark-navy)' }}>
-          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)', textTransform: 'uppercase', fontWeight: 600 }}>
+      <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--space-3)' }}>
+        <div className="card" style={{ borderLeft: '4px solid var(--dark-navy)' }}>
+          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)', fontWeight: 600 }}>
             Resolved Publishers
           </span>
-          <div style={{ fontSize: 'var(--text-2xl)', fontWeight: 800, color: 'var(--dark-navy)', marginTop: '4px' }}>
+          <div style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--text-2xl)', fontWeight: 700, margin: '4px 0', color: 'var(--dark-navy)' }}>
             {summary.total_resolved_publishers.toLocaleString()}
           </div>
-          <span style={{ fontSize: '11px', color: 'var(--dark-grey)' }}>
+          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)' }}>
             Exact normalized identities
           </span>
         </div>
 
-        <div className="card" style={{ padding: 'var(--space-4)', borderTop: '4px solid var(--sanguine)' }}>
-          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)', textTransform: 'uppercase', fontWeight: 600 }}>
+        <div className="card" style={{ borderLeft: '4px solid var(--sanguine)' }}>
+          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)', fontWeight: 600 }}>
             With Rejected Journals
           </span>
-          <div style={{ fontSize: 'var(--text-2xl)', fontWeight: 800, color: 'var(--sanguine)', marginTop: '4px' }}>
+          <div style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--text-2xl)', fontWeight: 700, margin: '4px 0', color: 'var(--sanguine)' }}>
             {summary.publishers_with_rejected.toLocaleString()}
           </div>
-          <span style={{ fontSize: '11px', color: 'var(--dark-grey)' }}>
+          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)' }}>
             {((summary.publishers_with_rejected / summary.total_resolved_publishers) * 100).toFixed(1)}% of publishers
           </span>
         </div>
 
-        <div className="card" style={{ padding: 'var(--space-4)', borderTop: '4px solid var(--leaf-green)' }}>
-          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)', textTransform: 'uppercase', fontWeight: 600 }}>
+        <div className="card" style={{ borderLeft: '4px solid var(--leaf-green)' }}>
+          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)', fontWeight: 600 }}>
             With Accepted Journals
           </span>
-          <div style={{ fontSize: 'var(--text-2xl)', fontWeight: 800, color: 'var(--leaf-green)', marginTop: '4px' }}>
+          <div style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--text-2xl)', fontWeight: 700, margin: '4px 0', color: 'var(--leaf-green)' }}>
             {summary.publishers_with_accepted.toLocaleString()}
           </div>
-          <span style={{ fontSize: '11px', color: 'var(--dark-grey)' }}>
+          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)' }}>
             {((summary.publishers_with_accepted / summary.total_resolved_publishers) * 100).toFixed(1)}% of publishers
           </span>
         </div>
 
-        <div className="card" style={{ padding: 'var(--space-4)', borderTop: '4px solid var(--amber-gold)' }}>
-          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)', textTransform: 'uppercase', fontWeight: 600 }}>
+        <div className="card" style={{ borderLeft: '4px solid var(--amber-gold)' }}>
+          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)', fontWeight: 600 }}>
             With Withdrawn Journals
           </span>
-          <div style={{ fontSize: 'var(--text-2xl)', fontWeight: 800, color: 'var(--amber-gold)', marginTop: '4px' }}>
+          <div style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--text-2xl)', fontWeight: 700, margin: '4px 0', color: 'var(--amber-gold)' }}>
             {summary.publishers_with_withdrawn.toLocaleString()}
           </div>
-          <span style={{ fontSize: '11px', color: 'var(--dark-grey)' }}>
+          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)' }}>
             {((summary.publishers_with_withdrawn / summary.total_resolved_publishers) * 100).toFixed(1)}% of publishers
           </span>
         </div>
 
-        <div className="card" style={{ padding: 'var(--space-4)', borderTop: '4px solid var(--moss-green)' }}>
-          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)', textTransform: 'uppercase', fontWeight: 600 }}>
+        <div className="card" style={{ borderLeft: '4px solid var(--moss-green)' }}>
+          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)', fontWeight: 600 }}>
             Currently Indexed DOAJ
           </span>
-          <div style={{ fontSize: 'var(--text-2xl)', fontWeight: 800, color: 'var(--moss-green)', marginTop: '4px' }}>
+          <div style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--text-2xl)', fontWeight: 700, margin: '4px 0', color: 'var(--moss-green)' }}>
             {summary.publishers_with_current_doaj.toLocaleString()}
           </div>
-          <span style={{ fontSize: '11px', color: 'var(--dark-grey)' }}>
+          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)' }}>
             Active on 15 Nov 2026
           </span>
         </div>
 
-        <div className="card" style={{ padding: 'var(--space-4)', borderTop: '4px solid var(--sinta-blue)' }}>
-          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)', textTransform: 'uppercase', fontWeight: 600 }}>
+        <div className="card" style={{ borderLeft: '4px solid var(--sinta-blue)' }}>
+          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)', fontWeight: 600 }}>
             SINTA-Matched Journals
           </span>
-          <div style={{ fontSize: 'var(--text-2xl)', fontWeight: 800, color: 'var(--sinta-blue)', marginTop: '4px' }}>
+          <div style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--text-2xl)', fontWeight: 700, margin: '4px 0', color: 'var(--sinta-blue)' }}>
             {summary.publishers_with_sinta.toLocaleString()}
           </div>
-          <span style={{ fontSize: '11px', color: 'var(--dark-grey)' }}>
+          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)' }}>
             Publishers with SINTA link
           </span>
         </div>
       </section>
 
       {/* Analytical Charts Controls */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-3)' }}>
-        <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--text-lg)', color: 'var(--warm-black)', margin: 0 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
+        <h3 style={{ fontSize: 'var(--text-lg)', color: 'var(--warm-black)', margin: 0 }}>
           Publisher Analytical Visualizations
         </h3>
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
@@ -641,7 +644,7 @@ export const PublisherAnalysisPage: React.FC<PublisherAnalysisPageProps> = ({
       </div>
 
       {/* Grid of 6 Charts */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(460px, 1fr))', gap: 'var(--space-4)' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))', gap: 'var(--space-4)' }}>
         {/* Chart A */}
         <BaseEChart
           options={chartAOption}
@@ -716,31 +719,71 @@ export const PublisherAnalysisPage: React.FC<PublisherAnalysisPageProps> = ({
       </div>
 
       {/* Searchable Publisher Directory Section */}
-      <section className="card" style={{ padding: 'var(--space-6)', display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 'var(--space-3)' }}>
+      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+        {/* Table Card Header & Context */}
+        <div style={{ padding: 'var(--space-3) var(--space-4)', backgroundColor: 'var(--light-grey)', borderBottom: '1px solid var(--neutral-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
           <div>
-            <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--text-xl)', color: 'var(--warm-black)', margin: 0 }}>
+            <h3 style={{ fontSize: 'var(--text-md)', fontFamily: 'var(--font-serif)', color: 'var(--warm-black)', margin: 0 }}>
               Searchable Publisher Directory
             </h3>
-            <p style={{ fontSize: 'var(--text-sm)', color: 'var(--dark-grey)', margin: '4px 0 0 0' }}>
-              Directory of <strong>{summary.total_resolved_publishers.toLocaleString()}</strong> reconciled publishing entities.
-              Sortable by all numeric metrics. Click <strong>View Profile</strong> or publisher name to inspect complete journal portfolios.
-            </p>
+            <span style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)' }}>
+              Showing {sortedPublishers.length.toLocaleString()} reconciled publisher entities (Page {currentPage} of {totalPages})
+            </span>
           </div>
-
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={handleExportCSV}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: 'var(--text-sm)' }}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-              <polyline points="7 10 12 15 17 10" />
-              <line x1="12" y1="15" x2="12" y2="3" />
-            </svg>
-            Export Directory CSV ({sortedPublishers.length})
-          </button>
+          <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={handleExportCSV}
+              style={{ padding: '4px 10px', minHeight: '32px', fontSize: 'var(--text-xs)', display: 'inline-flex', alignItems: 'center', gap: '5px' }}
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+              Export CSV ({sortedPublishers.length.toLocaleString()})
+            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <label htmlFor="pub-page-size-header" style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)', fontWeight: 600 }}>
+                Rows:
+              </label>
+              <select
+                id="pub-page-size-header"
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                style={{ padding: '2px 6px', minHeight: '30px', fontSize: 'var(--text-xs)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--neutral-border)' }}
+              >
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+            </div>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{ padding: '4px 10px', minHeight: '32px', fontSize: 'var(--text-xs)' }}
+              disabled={currentPage <= 1}
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+            >
+              Previous
+            </button>
+            <span style={{ fontSize: 'var(--text-xs)', fontFamily: 'var(--font-mono)' }}>
+              {currentPage} / {totalPages}
+            </span>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{ padding: '4px 10px', minHeight: '32px', fontSize: 'var(--text-xs)' }}
+              disabled={currentPage >= totalPages}
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+            >
+              Next
+            </button>
+          </div>
         </div>
 
         {/* Filter Controls Toolbar */}
@@ -748,18 +791,17 @@ export const PublisherAnalysisPage: React.FC<PublisherAnalysisPageProps> = ({
           style={{
             display: 'flex',
             flexWrap: 'wrap',
-            gap: 'var(--space-3)',
+            gap: 'var(--space-2)',
             alignItems: 'center',
-            padding: 'var(--space-3)',
-            background: 'var(--sand-light)',
-            borderRadius: 'var(--radius-sm)',
-            border: '1px solid var(--sand-medium)',
+            padding: 'var(--space-2) var(--space-4)',
+            background: 'var(--white)',
+            borderBottom: '1px solid var(--neutral-border)',
           }}
         >
-          <div style={{ flex: '1 1 240px', minWidth: '220px' }}>
+          <div style={{ flex: '1 1 200px', minWidth: '180px' }}>
             <input
               type="text"
-              placeholder="Search publisher name, confirmed alias, or ID..."
+              placeholder="Search publisher name or alias..."
               value={searchQuery}
               onChange={(e) => {
                 setSearchQuery(e.target.value);
@@ -767,15 +809,16 @@ export const PublisherAnalysisPage: React.FC<PublisherAnalysisPageProps> = ({
               }}
               style={{
                 width: '100%',
-                padding: '8px 12px',
+                padding: '4px 8px',
+                minHeight: '32px',
                 borderRadius: 'var(--radius-sm)',
                 border: '1px solid var(--neutral-border)',
-                fontSize: 'var(--text-sm)',
+                fontSize: 'var(--text-xs)',
               }}
             />
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
             <label htmlFor="country-filter" style={{ fontSize: 'var(--text-xs)', fontWeight: 600 }}>
               Country:
             </label>
@@ -786,7 +829,7 @@ export const PublisherAnalysisPage: React.FC<PublisherAnalysisPageProps> = ({
                 setCountryFilter(e.target.value);
                 setCurrentPage(1);
               }}
-              style={{ padding: '6px 8px', fontSize: 'var(--text-xs)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--neutral-border)' }}
+              style={{ padding: '4px 6px', minHeight: '32px', fontSize: 'var(--text-xs)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--neutral-border)' }}
             >
               <option value="all">All Countries</option>
               {availableCountries.map((c) => (
@@ -797,7 +840,7 @@ export const PublisherAnalysisPage: React.FC<PublisherAnalysisPageProps> = ({
             </select>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
             <label htmlFor="hist-filter" style={{ fontSize: 'var(--text-xs)', fontWeight: 600 }}>
               History:
             </label>
@@ -808,7 +851,7 @@ export const PublisherAnalysisPage: React.FC<PublisherAnalysisPageProps> = ({
                 setHistoryFilter(e.target.value);
                 setCurrentPage(1);
               }}
-              style={{ padding: '6px 8px', fontSize: 'var(--text-xs)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--neutral-border)' }}
+              style={{ padding: '4px 6px', minHeight: '32px', fontSize: 'var(--text-xs)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--neutral-border)' }}
             >
               <option value="all">All Publishers</option>
               <option value="rejected">Has Rejected Journals</option>
@@ -817,7 +860,7 @@ export const PublisherAnalysisPage: React.FC<PublisherAnalysisPageProps> = ({
             </select>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
             <label htmlFor="cur-status-filter" style={{ fontSize: 'var(--text-xs)', fontWeight: 600 }}>
               DOAJ Status:
             </label>
@@ -828,47 +871,50 @@ export const PublisherAnalysisPage: React.FC<PublisherAnalysisPageProps> = ({
                 setStatusFilter(e.target.value);
                 setCurrentPage(1);
               }}
-              style={{ padding: '6px 8px', fontSize: 'var(--text-xs)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--neutral-border)' }}
+              style={{ padding: '4px 6px', minHeight: '32px', fontSize: 'var(--text-xs)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--neutral-border)' }}
             >
               <option value="all">All</option>
-              <option value="currently_indexed">Currently Indexed (≥1 Journal)</option>
-              <option value="not_indexed">Not Currently Indexed (0 Journals)</option>
+              <option value="currently_indexed">Currently Indexed (≥1)</option>
+              <option value="not_indexed">Not Currently Indexed (0)</option>
             </select>
           </div>
 
           {/* Optional Columns Visibility Toggle */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 8px', background: 'var(--white)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--neutral-border)' }}>
-            <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--dark-grey)', textTransform: 'uppercase' }}>
-              Columns:
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '2px 6px', background: 'var(--light-grey)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--neutral-border)' }}>
+            <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--dark-grey)', textTransform: 'uppercase' }}>
+              Cols:
             </span>
-            <label style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', cursor: 'pointer' }}>
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', fontSize: '11px', cursor: 'pointer' }}>
               <input type="checkbox" checked={showCountry} onChange={(e) => setShowCountry(e.target.checked)} />
               Country
             </label>
-            <label style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', cursor: 'pointer' }}>
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', fontSize: '11px', cursor: 'pointer' }}>
               <input type="checkbox" checked={showAccepted} onChange={(e) => setShowAccepted(e.target.checked)} />
               Accepted
             </label>
-            <label style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', cursor: 'pointer' }}>
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', fontSize: '11px', cursor: 'pointer' }}>
               <input type="checkbox" checked={showSintaMatched} onChange={(e) => setShowSintaMatched(e.target.checked)} />
-              SINTA Matched
+              SINTA
             </label>
-            <label style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', cursor: 'pointer' }}>
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', fontSize: '11px', cursor: 'pointer' }}>
               <input type="checkbox" checked={showIdentityStatus} onChange={(e) => setShowIdentityStatus(e.target.checked)} />
-              Identity Status
+              Identity
             </label>
           </div>
-
-          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)', marginLeft: 'auto' }}>
-            Showing <strong>{sortedPublishers.length}</strong> of {publishers.length} publishers
-          </span>
         </div>
 
         {/* Table View */}
-        <div style={{ overflowX: 'auto', border: '1px solid var(--neutral-border)', borderRadius: 'var(--radius-sm)' }}>
-          <table className="table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--text-sm)' }}>
+        <div style={{ overflowX: 'auto' }}>
+          <table
+            style={{
+              width: '100%',
+              borderCollapse: 'collapse',
+              fontSize: 'var(--text-sm)',
+              textAlign: 'left',
+            }}
+          >
             <thead>
-              <tr style={{ background: 'var(--sand-light)', borderBottom: '2px solid var(--sand-medium)' }}>
+              <tr style={{ borderBottom: '2px solid var(--neutral-border)', backgroundColor: 'var(--white)' }}>
                 <SortableHeader columnKey="name" label="Publisher Name" activeKey={sortKey} direction={direction} onSort={requestSort} />
                 {showCountry && <SortableHeader columnKey="country" label="Country" activeKey={sortKey} direction={direction} onSort={requestSort} />}
                 <SortableHeader columnKey="distinct" label="Distinct Journals" activeKey={sortKey} direction={direction} onSort={requestSort} align="right" />
@@ -884,7 +930,7 @@ export const PublisherAnalysisPage: React.FC<PublisherAnalysisPageProps> = ({
             <tbody>
               {paginatedPublishers.length === 0 ? (
                 <tr>
-                  <td colSpan={6 + (showCountry ? 1 : 0) + (showAccepted ? 1 : 0) + (showSintaMatched ? 1 : 0) + (showIdentityStatus ? 1 : 0)} style={{ textAlign: 'center', padding: 'var(--space-8)', color: 'var(--dark-grey)' }}>
+                  <td colSpan={6 + (showCountry ? 1 : 0) + (showAccepted ? 1 : 0) + (showSintaMatched ? 1 : 0) + (showIdentityStatus ? 1 : 0)} style={{ textAlign: 'center', padding: 'var(--space-5)', color: 'var(--dark-grey)' }}>
                     No publisher entities match the current search and filter criteria.
                   </td>
                 </tr>
@@ -892,16 +938,16 @@ export const PublisherAnalysisPage: React.FC<PublisherAnalysisPageProps> = ({
                 paginatedPublishers.map((p: PublisherRecord) => (
                   <tr
                     key={p.publisher_id}
-                    style={{ borderBottom: '1px solid var(--sand-medium)' }}
+                    style={{ borderBottom: '1px solid var(--light-grey)' }}
                   >
-                    <td style={{ padding: '10px 12px', fontWeight: 600 }}>
+                    <td style={{ padding: 'var(--space-3)', fontWeight: 600 }}>
                       <button
                         type="button"
                         onClick={() => onSelectPublisher(p.publisher_id)}
                         style={{
                           background: 'none',
                           border: 'none',
-                          color: 'var(--sanguine)',
+                          color: 'var(--warm-black)',
                           textDecoration: 'underline',
                           cursor: 'pointer',
                           padding: 0,
@@ -917,41 +963,41 @@ export const PublisherAnalysisPage: React.FC<PublisherAnalysisPageProps> = ({
                     </td>
 
                     {showCountry && (
-                      <td style={{ padding: '10px 12px', fontSize: 'var(--text-xs)', color: 'var(--dark-grey)' }}>
+                      <td style={{ padding: 'var(--space-3)', fontSize: 'var(--text-xs)', color: 'var(--dark-grey)' }}>
                         {p.country || 'Indonesia'}
                       </td>
                     )}
 
-                    <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
+                    <td style={{ padding: 'var(--space-3)', textAlign: 'right', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
                       {p.distinct_journal_count.toLocaleString()}
                     </td>
 
-                    <td style={{ padding: '10px 12px', textAlign: 'right', fontFamily: 'var(--font-mono)', color: p.rejected_journal_count > 0 ? 'var(--sanguine)' : 'inherit' }}>
+                    <td style={{ padding: 'var(--space-3)', textAlign: 'right', fontFamily: 'var(--font-mono)', color: p.rejected_journal_count > 0 ? 'var(--sanguine)' : 'inherit' }}>
                       {p.rejected_journal_count.toLocaleString()}
                     </td>
 
                     {showAccepted && (
-                      <td style={{ padding: '10px 12px', textAlign: 'right', fontFamily: 'var(--font-mono)', color: p.accepted_journal_count > 0 ? 'var(--leaf-green)' : 'inherit' }}>
+                      <td style={{ padding: 'var(--space-3)', textAlign: 'right', fontFamily: 'var(--font-mono)', color: p.accepted_journal_count > 0 ? 'var(--leaf-green)' : 'inherit' }}>
                         {p.accepted_journal_count.toLocaleString()}
                       </td>
                     )}
 
-                    <td style={{ padding: '10px 12px', textAlign: 'right', fontFamily: 'var(--font-mono)', color: p.withdrawn_journal_count > 0 ? 'var(--amber-gold)' : 'inherit' }}>
+                    <td style={{ padding: 'var(--space-3)', textAlign: 'right', fontFamily: 'var(--font-mono)', color: p.withdrawn_journal_count > 0 ? 'var(--amber-gold)' : 'inherit' }}>
                       {p.withdrawn_journal_count.toLocaleString()}
                     </td>
 
-                    <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600, fontFamily: 'var(--font-mono)', color: p.currently_indexed_journal_count > 0 ? 'var(--moss-green)' : 'var(--mid-grey)' }}>
+                    <td style={{ padding: 'var(--space-3)', textAlign: 'right', fontWeight: 600, fontFamily: 'var(--font-mono)', color: p.currently_indexed_journal_count > 0 ? 'var(--moss-green)' : 'var(--mid-grey)' }}>
                       {p.currently_indexed_journal_count.toLocaleString()}
                     </td>
 
                     {showSintaMatched && (
-                      <td style={{ padding: '10px 12px', textAlign: 'right', fontFamily: 'var(--font-mono)' }}>
+                      <td style={{ padding: 'var(--space-3)', textAlign: 'right', fontFamily: 'var(--font-mono)' }}>
                         {p.sinta_matched_journal_count.toLocaleString()}
                       </td>
                     )}
 
                     {showIdentityStatus && (
-                      <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                      <td style={{ padding: 'var(--space-3)', textAlign: 'center' }}>
                         <span
                           className="badge"
                           style={{
@@ -966,14 +1012,14 @@ export const PublisherAnalysisPage: React.FC<PublisherAnalysisPageProps> = ({
                       </td>
                     )}
 
-                    <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                    <td style={{ padding: 'var(--space-3)', textAlign: 'center', whiteSpace: 'nowrap' }}>
                       <button
                         type="button"
                         className="btn btn-secondary"
                         onClick={() => onSelectPublisher(p.publisher_id)}
-                        style={{ padding: '3px 9px', fontSize: 'var(--text-xs)', fontWeight: 600 }}
+                        style={{ padding: '2px 8px', minHeight: '30px', fontSize: 'var(--text-xs)', fontWeight: 600 }}
                       >
-                        View Profile →
+                        Profile
                       </button>
                     </td>
                   </tr>
@@ -982,56 +1028,7 @@ export const PublisherAnalysisPage: React.FC<PublisherAnalysisPageProps> = ({
             </tbody>
           </table>
         </div>
-
-        {/* Pagination Toolbar */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-2)', marginTop: 'var(--space-2)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
-            <span style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)' }}>
-              Page <strong>{currentPage}</strong> of <strong>{totalPages}</strong> ({sortedPublishers.length} total publishers)
-            </span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <label htmlFor="pub-page-size" style={{ fontSize: '11px', color: 'var(--dark-grey)', fontWeight: 600 }}>
-                Rows per page:
-              </label>
-              <select
-                id="pub-page-size"
-                value={pageSize}
-                onChange={(e) => {
-                  setPageSize(Number(e.target.value));
-                  setCurrentPage(1);
-                }}
-                style={{ padding: '2px 6px', fontSize: '11px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--neutral-border)' }}
-              >
-                <option value={25}>25</option>
-                <option value={50}>50</option>
-                <option value={100}>100</option>
-              </select>
-            </div>
-          </div>
-          {totalPages > 1 && (
-            <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                disabled={currentPage === 1}
-                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                style={{ fontSize: 'var(--text-xs)', padding: '4px 10px' }}
-              >
-                Previous
-              </button>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                disabled={currentPage === totalPages}
-                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                style={{ fontSize: 'var(--text-xs)', padding: '4px 10px' }}
-              >
-                Next
-              </button>
-            </div>
-          )}
-        </div>
-      </section>
+      </div>
     </div>
   );
 };
