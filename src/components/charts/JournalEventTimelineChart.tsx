@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { BaseEChart } from './BaseEChart';
 import { FactRejectedRecord, FactWithdrawnRecord, FactAcceptedRecord } from '../../types';
+import { formatMatchStatus } from '../../lib/matchingLabels';
 import * as echarts from '../../lib/echarts';
 
 interface JournalTimelineProps {
@@ -33,7 +34,7 @@ export const JournalEventTimelineChart: React.FC<JournalTimelineProps> = ({
         year: r.event_year || parseInt(d.slice(0, 4), 10),
         type: 'Rejection',
         id: r.source_record_id,
-        details: `Rejection Record #${idx + 1} (${r.source_record_id}) • Match: ${r.strict_match_status}`,
+        details: `Rejection Record #${idx + 1} (${r.source_record_id}) • Match: ${formatMatchStatus(r.strict_match_status)}`,
         color: '#982E0A', // --sanguine
       });
     });

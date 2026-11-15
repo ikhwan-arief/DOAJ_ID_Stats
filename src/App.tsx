@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Layout } from './components/layout/Layout';
 import { RouteId } from './components/layout/Header';
 import { GlobalFilterState } from './types';
@@ -13,6 +13,10 @@ import { SintaAnalysisPage } from './pages/SintaAnalysisPage';
 import { JournalExplorerPage } from './pages/JournalExplorerPage';
 import { DataQualityPage } from './pages/DataQualityPage';
 
+// Shared data loader for identity resolution
+import { loadDimJournals, loadSintaSnapshot, loadFactDoajCurrent, loadFactRejected, loadFactWithdrawn, loadFactAccepted } from './data/loader';
+import { buildJournalIdentityIndex, JournalIdentityIndex } from './lib/journalRoutes';
+
 const INITIAL_FILTERS: GlobalFilterState = {
   searchQuery: '',
   sintaRank: 'all',
@@ -23,10 +27,48 @@ const INITIAL_FILTERS: GlobalFilterState = {
   metricView: 'records',
 };
 
+interface ParsedHash {
+  route: RouteId;
+  journalSlug: string | null;
+}
+
 export const App: React.FC = () => {
-  // Hash-based routing for clean GitHub Pages direct link & refresh support
-  const getRouteFromHash = (): RouteId => {
-    const hash = window.location.hash.replace('#/', '').replace('#', '');
+  const [identityIndex, setIdentityIndex] = useState<JournalIdentityIndex | null>(null);
+
+  // Load identity index for canonical profile routing
+  useEffect(() => {
+    Promise.all([
+      loadDimJournals(),
+      loadFactRejected(),
+      loadFactWithdrawn(),
+      loadFactAccepted(),
+      loadFactDoajCurrent(),
+      loadSintaSnapshot(),
+    ])
+      .then(([dim, rej, withdr, acc, curr, sintaList]) => {
+        const sintaMap = new Map();
+        sintaList.forEach((s) => sintaMap.set(s.journal_id, s));
+        const idx = buildJournalIdentityIndex(dim, sintaMap, curr, rej, withdr, acc);
+        setIdentityIndex(idx);
+      })
+      .catch((err) => console.error('Failed to build identity index:', err));
+  }, []);
+
+  // Parse hash into route and optional journal slug
+  const parseHash = (): ParsedHash => {
+    const raw = window.location.hash.replace(/^#\/?/, '').trim();
+    if (!raw) return { route: 'overview', journalSlug: null };
+
+    // Support #/journal/{slug} or #/explorer/{slug}
+    if (raw.startsWith('journal/')) {
+      const slug = raw.slice('journal/'.length).trim();
+      return { route: 'explorer', journalSlug: slug || null };
+    }
+    if (raw.startsWith('explorer/')) {
+      const slug = raw.slice('explorer/'.length).trim();
+      return { route: 'explorer', journalSlug: slug || null };
+    }
+
     const validRoutes: RouteId[] = [
       'overview',
       'rejected',
@@ -36,34 +78,76 @@ export const App: React.FC = () => {
       'explorer',
       'quality',
     ];
-    if (validRoutes.includes(hash as RouteId)) {
-      return hash as RouteId;
+
+    if (validRoutes.includes(raw as RouteId)) {
+      return { route: raw as RouteId, journalSlug: null };
     }
-    return 'overview';
+
+    return { route: 'overview', journalSlug: null };
   };
 
-  const [currentRoute, setCurrentRoute] = useState<RouteId>(getRouteFromHash);
+  const [currentParsed, setCurrentParsed] = useState<ParsedHash>(parseHash);
   const [filters, setFilters] = useState<GlobalFilterState>(INITIAL_FILTERS);
-  const [selectedJournalId, setSelectedJournalId] = useState<string | null>(null);
+
+  // Navigation history tracker for reliable Back navigation
+  const previousRouteRef = useRef<RouteId | null>(null);
+  const previousRouteNameRef = useRef<string | null>(null);
 
   // Sync hash changes with state
   useEffect(() => {
     const handleHashChange = () => {
-      setCurrentRoute(getRouteFromHash());
+      const nextParsed = parseHash();
+      setCurrentParsed((prev) => {
+        if (prev.route !== nextParsed.route) {
+          previousRouteRef.current = prev.route;
+          const routeLabels: Record<RouteId, string> = {
+            overview: 'Overview',
+            rejected: 'Rejected Applications',
+            history: 'Rejection History',
+            withdrawn: 'Withdrawn Journals',
+            sinta: 'SINTA Analysis',
+            explorer: 'Journal Search',
+            quality: 'Data Quality',
+          };
+          previousRouteNameRef.current = routeLabels[prev.route] || 'Previous Page';
+        }
+        return nextParsed;
+      });
     };
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
   const handleRouteChange = (route: RouteId) => {
-    setCurrentRoute(route);
     window.location.hash = `#/${route}`;
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleSelectJournal = (journalId: string | null) => {
-    setSelectedJournalId(journalId);
-    handleRouteChange('explorer');
+  const handleNavigateToJournalSlug = (slug: string) => {
+    window.location.hash = `#/journal/${slug}`;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleSelectJournalById = (journalId: string | null) => {
+    if (!journalId) {
+      handleRouteChange('explorer');
+      return;
+    }
+    if (identityIndex) {
+      const slug = identityIndex.journalToCanonicalSlug.get(journalId) || `id:${journalId}`;
+      handleNavigateToJournalSlug(slug);
+    } else {
+      handleNavigateToJournalSlug(`id:${journalId}`);
+    }
+  };
+
+  const handleBackNavigation = () => {
+    if (previousRouteRef.current && previousRouteRef.current !== 'explorer') {
+      handleRouteChange(previousRouteRef.current);
+    } else {
+      // Clear journal selection and go to clean search explorer
+      handleRouteChange('explorer');
+    }
   };
 
   const handleSelectRank = (rank: string) => {
@@ -76,7 +160,7 @@ export const App: React.FC = () => {
   };
 
   const renderActiveRoute = () => {
-    switch (currentRoute) {
+    switch (currentParsed.route) {
       case 'overview':
         return (
           <OverviewPage
@@ -88,21 +172,21 @@ export const App: React.FC = () => {
         return (
           <RejectedApplicationsPage
             filters={filters}
-            onSelectJournal={handleSelectJournal}
+            onSelectJournal={handleSelectJournalById}
           />
         );
       case 'history':
         return (
           <RejectionHistoryPage
             filters={filters}
-            onSelectJournal={handleSelectJournal}
+            onSelectJournal={handleSelectJournalById}
           />
         );
       case 'withdrawn':
         return (
           <WithdrawnJournalsPage
             filters={filters}
-            onSelectJournal={handleSelectJournal}
+            onSelectJournal={handleSelectJournalById}
           />
         );
       case 'sinta':
@@ -116,8 +200,10 @@ export const App: React.FC = () => {
         return (
           <JournalExplorerPage
             filters={filters}
-            selectedJournalId={selectedJournalId}
-            onSelectJournal={setSelectedJournalId}
+            journalSlug={currentParsed.journalSlug}
+            onNavigateToJournal={handleNavigateToJournalSlug}
+            onBack={handleBackNavigation}
+            backTargetLabel={previousRouteNameRef.current || undefined}
           />
         );
       case 'quality':
@@ -135,13 +221,13 @@ export const App: React.FC = () => {
   return (
     <ErrorBoundary fallbackTitle="Observatory Shell Error">
       <Layout
-        currentRoute={currentRoute}
+        currentRoute={currentParsed.route}
         onRouteChange={handleRouteChange}
         filters={filters}
         onFilterChange={setFilters}
         onResetFilters={handleResetFilters}
       >
-        <ErrorBoundary fallbackTitle={`Observatory View Error (${currentRoute})`}>
+        <ErrorBoundary fallbackTitle={`Observatory View Error (${currentParsed.route})`}>
           {renderActiveRoute()}
         </ErrorBoundary>
       </Layout>

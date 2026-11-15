@@ -18,18 +18,30 @@ import {
   CurrentDoajStatus,
 } from '../types';
 import { RankBadge, Alert, LoadingState } from '../components/common/UIPrimitives';
+import { BackNavigation } from '../components/common/BackNavigation';
 import { JournalEventTimelineChart } from '../components/charts/JournalEventTimelineChart';
+import { formatMatchingMethod, formatMatchStatus, getMatchingExplanation } from '../lib/matchingLabels';
+import {
+  buildJournalIdentityIndex,
+  getJournalProfileRoute,
+  isValidIssnChecksum,
+  JournalIdentityIndex,
+} from '../lib/journalRoutes';
 
 interface JournalExplorerPageProps {
   filters: GlobalFilterState;
-  selectedJournalId: string | null;
-  onSelectJournal: (journalId: string | null) => void;
+  journalSlug: string | null;
+  onNavigateToJournal: (slug: string) => void;
+  onBack: () => void;
+  backTargetLabel?: string;
 }
 
 export const JournalExplorerPage: React.FC<JournalExplorerPageProps> = ({
   filters,
-  selectedJournalId,
-  onSelectJournal,
+  journalSlug,
+  onNavigateToJournal,
+  onBack,
+  backTargetLabel,
 }) => {
   const [journals, setJournals] = useState<DimJournalRecord[] | null>(null);
   const [rejections, setRejections] = useState<FactRejectedRecord[] | null>(null);
@@ -41,6 +53,8 @@ export const JournalExplorerPage: React.FC<JournalExplorerPageProps> = ({
   const [isDropdownOpen, setIsDropdownOpen] = useState<boolean>(false);
   const [highlightedIndex, setHighlightedIndex] = useState<number>(-1);
   const [error, setError] = useState<string | null>(null);
+  const [copiedNotification, setCopiedNotification] = useState<string | null>(null);
+  const [isProvenanceOpen, setIsProvenanceOpen] = useState<boolean>(false);
 
   const searchBoxRef = useRef<HTMLDivElement>(null);
 
@@ -76,6 +90,12 @@ export const JournalExplorerPage: React.FC<JournalExplorerPageProps> = ({
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // Build the deterministic ISSN identity index
+  const identityIndex = useMemo<JournalIdentityIndex | null>(() => {
+    if (!journals) return null;
+    return buildJournalIdentityIndex(journals, sintas, doajCurrent, rejections, withdrawns, accepted);
+  }, [journals, sintas, doajCurrent, rejections, withdrawns, accepted]);
 
   // Quick lookup indices by journal_id
   const currentByJournal = useMemo(() => {
@@ -125,7 +145,45 @@ export const JournalExplorerPage: React.FC<JournalExplorerPageProps> = ({
     return map;
   }, [accepted]);
 
-  // Combined search query (from local search box or global filter)
+  // Resolve target journal or ambiguous matches from journalSlug
+  const slugResolution = useMemo(() => {
+    if (!journalSlug || !identityIndex || !journals) {
+      return { journalId: null, isAmbiguous: false, ambiguousCandidateIds: [], notFound: false };
+    }
+
+    const cleanSlug = decodeURIComponent(journalSlug).trim().toUpperCase();
+
+    // Check if slug is an opaque journal_id route (e.g. "id:sinta:bac57293" or "sinta:bac57293")
+    if (cleanSlug.startsWith('ID:')) {
+      const rawId = journalSlug.slice(3).trim();
+      const match = journals.find((j) => j.journal_id.toLowerCase() === rawId.toLowerCase());
+      if (match) return { journalId: match.journal_id, isAmbiguous: false, ambiguousCandidateIds: [], notFound: false };
+      return { journalId: null, isAmbiguous: false, ambiguousCandidateIds: [], notFound: true };
+    }
+
+    // Check if cleanSlug is a valid ISSN
+    if (isValidIssnChecksum(cleanSlug)) {
+      if (identityIndex.ambiguousIssns.has(cleanSlug)) {
+        const candidateIds = identityIndex.ambiguousIssns.get(cleanSlug) || [];
+        return { journalId: null, isAmbiguous: true, ambiguousCandidateIds: candidateIds, notFound: false };
+      }
+      if (identityIndex.issnToUniqueJournal.has(cleanSlug)) {
+        const uniqueId = identityIndex.issnToUniqueJournal.get(cleanSlug)!;
+        return { journalId: uniqueId, isAmbiguous: false, ambiguousCandidateIds: [], notFound: false };
+      }
+      return { journalId: null, isAmbiguous: false, ambiguousCandidateIds: [], notFound: true };
+    }
+
+    // Fallback: direct journal_id match
+    const directMatch = journals.find((j) => j.journal_id.toLowerCase() === journalSlug.toLowerCase());
+    if (directMatch) {
+      return { journalId: directMatch.journal_id, isAmbiguous: false, ambiguousCandidateIds: [], notFound: false };
+    }
+
+    return { journalId: null, isAmbiguous: false, ambiguousCandidateIds: [], notFound: true };
+  }, [journalSlug, identityIndex, journals]);
+
+  // Combined search query
   const effectiveQuery = useMemo(() => {
     return (localSearch || filters.searchQuery || '').trim().toLowerCase();
   }, [localSearch, filters.searchQuery]);
@@ -134,46 +192,45 @@ export const JournalExplorerPage: React.FC<JournalExplorerPageProps> = ({
   const candidateJournals = useMemo(() => {
     if (!journals || effectiveQuery.length < 2) return [];
 
-    return journals.filter((j) => {
-      const titleMatch = (j.display_title || '').toLowerCase().includes(effectiveQuery);
-      const idMatch = j.journal_id.toLowerCase().includes(effectiveQuery);
-      if (titleMatch || idMatch) return true;
+    return journals
+      .filter((j) => {
+        const titleMatch = (j.display_title || '').toLowerCase().includes(effectiveQuery);
+        const idMatch = j.journal_id.toLowerCase().includes(effectiveQuery);
+        if (titleMatch || idMatch) return true;
 
-      // ISSN search in SINTA
-      const s = sintas?.get(j.journal_id);
-      if (s) {
-        if ((s.p_issn_raw || '').toLowerCase().includes(effectiveQuery)) return true;
-        if ((s.e_issn_raw || '').toLowerCase().includes(effectiveQuery)) return true;
-        if ((s.p_issn_normalized || '').toLowerCase().includes(effectiveQuery)) return true;
-        if ((s.e_issn_normalized || '').toLowerCase().includes(effectiveQuery)) return true;
-      }
+        // ISSN search in SINTA
+        const s = sintas?.get(j.journal_id);
+        if (s) {
+          if ((s.p_issn_raw || '').toLowerCase().includes(effectiveQuery)) return true;
+          if ((s.e_issn_raw || '').toLowerCase().includes(effectiveQuery)) return true;
+          if ((s.p_issn_normalized || '').toLowerCase().includes(effectiveQuery)) return true;
+          if ((s.e_issn_normalized || '').toLowerCase().includes(effectiveQuery)) return true;
+        }
 
-      // ISSN search in Current DOAJ
-      const c = currentByJournal.get(j.journal_id);
-      if (c) {
-        if ((c.p_issn_raw || '').toLowerCase().includes(effectiveQuery)) return true;
-        if ((c.e_issn_raw || '').toLowerCase().includes(effectiveQuery)) return true;
-      }
+        // ISSN search in Current DOAJ
+        const c = currentByJournal.get(j.journal_id);
+        if (c) {
+          if ((c.p_issn_raw || '').toLowerCase().includes(effectiveQuery)) return true;
+          if ((c.e_issn_raw || '').toLowerCase().includes(effectiveQuery)) return true;
+        }
 
-      // ISSN search in Rejections
-      const rejList = rejectionsByJournal.get(j.journal_id);
-      if (rejList && rejList[0]) {
-        if ((rejList[0].p_issn_raw || '').toLowerCase().includes(effectiveQuery)) return true;
-        if ((rejList[0].e_issn_raw || '').toLowerCase().includes(effectiveQuery)) return true;
-      }
+        // ISSN search in Rejections
+        const rejList = rejectionsByJournal.get(j.journal_id);
+        if (rejList && rejList[0]) {
+          if ((rejList[0].p_issn_raw || '').toLowerCase().includes(effectiveQuery)) return true;
+          if ((rejList[0].e_issn_raw || '').toLowerCase().includes(effectiveQuery)) return true;
+        }
 
-      return false;
-    }).slice(0, 15);
+        return false;
+      })
+      .slice(0, 15);
   }, [journals, effectiveQuery, sintas, currentByJournal, rejectionsByJournal]);
 
-  // Active journal selection (ONLY from selectedJournalId or URL param, NOT arbitrary default)
+  // Active journal selection (ONLY from slug resolution)
   const activeJournal = useMemo(() => {
-    if (!journals || journals.length === 0) return null;
-    if (selectedJournalId) {
-      return journals.find((j) => j.journal_id === selectedJournalId) || null;
-    }
-    return null;
-  }, [selectedJournalId, journals]);
+    if (!journals || !slugResolution.journalId) return null;
+    return journals.find((j) => j.journal_id === slugResolution.journalId) || null;
+  }, [slugResolution.journalId, journals]);
 
   // Associated event records for active journal
   const journalRejections = useMemo(() => {
@@ -200,6 +257,13 @@ export const JournalExplorerPage: React.FC<JournalExplorerPageProps> = ({
     if (!activeJournal) return null;
     return currentByJournal.get(activeJournal.journal_id) || null;
   }, [activeJournal, currentByJournal]);
+
+  // Ambiguous candidate journals list
+  const ambiguousJournals = useMemo(() => {
+    if (!slugResolution.isAmbiguous || !journals) return [];
+    const idSet = new Set(slugResolution.ambiguousCandidateIds);
+    return journals.filter((j) => idSet.has(j.journal_id));
+  }, [slugResolution, journals]);
 
   // Resolve best available ISSNs, publisher, subjects, and verified public URLs
   const sampleRej = journalRejections[0];
@@ -249,7 +313,12 @@ export const JournalExplorerPage: React.FC<JournalExplorerPageProps> = ({
     (activeCurrent ? 'currently_indexed' : 'not_found');
 
   const handleSelectSuggestion = (journalId: string) => {
-    onSelectJournal(journalId);
+    if (identityIndex) {
+      const slug = identityIndex.journalToCanonicalSlug.get(journalId) || `id:${journalId}`;
+      onNavigateToJournal(slug);
+    } else {
+      onNavigateToJournal(`id:${journalId}`);
+    }
     setIsDropdownOpen(false);
     setHighlightedIndex(-1);
   };
@@ -281,16 +350,36 @@ export const JournalExplorerPage: React.FC<JournalExplorerPageProps> = ({
     }
   };
 
+  const handleCopyLink = async () => {
+    if (!activeJournal) return;
+    const path = getJournalProfileRoute(activeJournal.journal_id, identityIndex);
+    const fullUrl = `${window.location.origin}${window.location.pathname}${path}`;
+
+    try {
+      await navigator.clipboard.writeText(fullUrl);
+      setCopiedNotification('Journal profile link copied to clipboard!');
+      setTimeout(() => setCopiedNotification(null), 3500);
+    } catch {
+      setCopiedNotification('Failed to copy automatically. URL: ' + fullUrl);
+      setTimeout(() => setCopiedNotification(null), 6000);
+    }
+  };
+
   if (error) {
     return <Alert type="warning" title="Error Loading Journal Explorer">{error}</Alert>;
   }
 
   if (!journals || !rejections || !withdrawns || !accepted || !doajCurrent || !sintas) {
-    return <LoadingState message="Loading reconciled journal identities (18,564 resolved entities)..." />;
+    return <LoadingState message="Loading journal directory..." />;
   }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+      {/* Back Navigation Bar (shown when viewing a journal or disambiguation) */}
+      {(activeJournal || slugResolution.isAmbiguous || slugResolution.notFound) && (
+        <BackNavigation onBack={onBack} targetLabel={backTargetLabel} />
+      )}
+
       {/* Route Header */}
       <div>
         <span
@@ -305,12 +394,12 @@ export const JournalExplorerPage: React.FC<JournalExplorerPageProps> = ({
           Route 6 • Journal Profile & Provenance
         </span>
         <h2 style={{ marginTop: 'var(--space-1)', marginBottom: 'var(--space-2)' }}>
-          Journal Explorer & Reconciled Identity Dossier
+          Journal Explorer & Verified Dossier
         </h2>
         <p style={{ color: 'var(--dark-grey)', maxWidth: '900px' }}>
-          Search-first dossier system for scholarly journals across Indonesia ({journals.length.toLocaleString()} resolved entities).
-          Search by Journal Title, P-ISSN, E-ISSN, or Reconciled ID to inspect accreditation, current DOAJ indexing status,
-          verified public URLs, and linked historical application and withdrawal events.
+          Search-first directory for Indonesian scholarly journals ({journals.length.toLocaleString()} recognized entities).
+          Search by Journal Title, P-ISSN, E-ISSN, or identifier to inspect accreditation, current DOAJ indexing status,
+          verified public links, and linked historical review outcomes.
         </p>
       </div>
 
@@ -337,7 +426,7 @@ export const JournalExplorerPage: React.FC<JournalExplorerPageProps> = ({
             color: 'var(--warm-black)',
           }}
         >
-          Search Journal Dossier (Title, P-ISSN, E-ISSN, or Journal ID)
+          Search Journal Profile (Title, P-ISSN, E-ISSN, or ID)
         </label>
         <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
           <input
@@ -355,7 +444,7 @@ export const JournalExplorerPage: React.FC<JournalExplorerPageProps> = ({
               }
             }}
             onKeyDown={handleKeyDown}
-            placeholder="Search by title, ISSN (e.g. 2252-6617), or ID (e.g. sinta:bac57293)..."
+            placeholder="Search by title, ISSN (e.g. 2252-6617), or identifier..."
             className="input-search"
             autoComplete="off"
             style={{
@@ -382,7 +471,7 @@ export const JournalExplorerPage: React.FC<JournalExplorerPageProps> = ({
           )}
         </div>
 
-        {/* Suggestion Dropdown (Only shown when query >= 2 chars and dropdown is open) */}
+        {/* Suggestion Dropdown */}
         {isDropdownOpen && effectiveQuery.length >= 2 && (
           <div
             style={{
@@ -434,7 +523,7 @@ export const JournalExplorerPage: React.FC<JournalExplorerPageProps> = ({
                           {cand.display_title || cand.journal_id}
                         </div>
                         <div style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)', fontFamily: 'var(--font-mono)' }}>
-                          ID: {cand.journal_id}
+                          Accreditation: {cand.sinta_rank}
                           {cand.in_current_doaj && (
                             <span style={{ color: 'var(--dark-green)', fontWeight: 600, marginLeft: '8px' }}>
                               • Indexed in DOAJ
@@ -442,7 +531,7 @@ export const JournalExplorerPage: React.FC<JournalExplorerPageProps> = ({
                           )}
                           {cand.in_rejected && (
                             <span style={{ color: 'var(--sanguine)', fontWeight: 600, marginLeft: '8px' }}>
-                              • Rejected
+                              • Rejection History
                             </span>
                           )}
                         </div>
@@ -454,16 +543,117 @@ export const JournalExplorerPage: React.FC<JournalExplorerPageProps> = ({
               </ul>
             ) : (
               <div style={{ padding: '16px', textAlign: 'center', color: 'var(--dark-grey)', fontSize: 'var(--text-sm)' }}>
-                No matching journals found for "<strong>{effectiveQuery}</strong>". Check the spelling or try searching by ISSN.
+                No matching journals found for "<strong>{effectiveQuery}</strong>". Check the spelling or search by ISSN.
               </div>
             )}
           </div>
         )}
       </div>
 
+      {/* Disambiguation Screen: when an ISSN maps to multiple journals */}
+      {slugResolution.isAmbiguous && (
+        <div
+          className="card"
+          style={{
+            padding: 'var(--space-5)',
+            borderLeft: '4px solid var(--ochre)',
+            backgroundColor: 'var(--white)',
+          }}
+        >
+          <h3 style={{ fontSize: 'var(--text-lg)', color: 'var(--warm-black)', marginBottom: 'var(--space-2)' }}>
+            Multiple Journals Share ISSN: {decodeURIComponent(journalSlug || '')}
+          </h3>
+          <p style={{ fontSize: 'var(--text-sm)', color: 'var(--dark-grey)', marginBottom: 'var(--space-4)' }}>
+            The requested ISSN is shared across {ambiguousJournals.length} distinct journal entities in the public repository.
+            Select the specific journal you wish to inspect below:
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+            {ambiguousJournals.map((cand) => (
+              <div
+                key={cand.journal_id}
+                style={{
+                  padding: 'var(--space-3) var(--space-4)',
+                  backgroundColor: 'var(--light-grey)',
+                  border: '1px solid var(--neutral-border)',
+                  borderRadius: 'var(--radius-sm)',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: 'var(--space-2)',
+                }}
+              >
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: 'var(--text-base)', color: 'var(--warm-black)' }}>
+                    {cand.display_title}
+                  </div>
+                  <div style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)', marginTop: '2px' }}>
+                    Publisher: {cand.current_doaj_publisher || 'National Registry'} • SINTA Rank: {cand.sinta_rank}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => handleSelectSuggestion(cand.journal_id)}
+                  style={{ padding: '6px 14px', fontSize: 'var(--text-xs)' }}
+                >
+                  View Profile →
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Not Found Screen */}
+      {slugResolution.notFound && (
+        <div
+          className="card"
+          style={{
+            padding: 'var(--space-6)',
+            textAlign: 'center',
+            backgroundColor: 'var(--white)',
+            borderRadius: 'var(--radius-md)',
+            border: '1px dashed var(--neutral-border)',
+          }}
+        >
+          <h3 style={{ fontSize: 'var(--text-lg)', color: 'var(--sanguine)', marginBottom: 'var(--space-2)' }}>
+            Journal Profile Not Found
+          </h3>
+          <p style={{ maxWidth: '600px', margin: '0 auto var(--space-4) auto', fontSize: 'var(--text-sm)', color: 'var(--dark-grey)' }}>
+            No journal matching identifier or ISSN "<strong>{decodeURIComponent(journalSlug || '')}</strong>" was found in this observatory snapshot.
+          </p>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={onBack}
+            style={{ padding: '8px 16px', fontSize: 'var(--text-sm)' }}
+          >
+            ← Back to Journal Search
+          </button>
+        </div>
+      )}
+
       {/* Main Dossier Presentation */}
-      {activeJournal ? (
+      {activeJournal && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+          {/* Notification Alert for Copied Link */}
+          {copiedNotification && (
+            <div
+              style={{
+                padding: 'var(--space-2) var(--space-4)',
+                backgroundColor: 'var(--mid-green)',
+                color: 'var(--white)',
+                fontWeight: 600,
+                fontSize: 'var(--text-sm)',
+                borderRadius: 'var(--radius-sm)',
+              }}
+              role="status"
+            >
+              ✓ {copiedNotification}
+            </div>
+          )}
+
           {/* Top Dossier Card */}
           <div
             className="card"
@@ -486,11 +676,27 @@ export const JournalExplorerPage: React.FC<JournalExplorerPageProps> = ({
               }}
             >
               <div>
-                <h3 style={{ fontSize: 'var(--text-lg)', margin: '0 0 var(--space-1) 0', color: 'var(--warm-black)' }}>
+                <h3 style={{ fontSize: 'var(--text-xl)', margin: '0 0 var(--space-1) 0', color: 'var(--warm-black)' }}>
                   {activeJournal.display_title || 'Unnamed Journal'}
                 </h3>
-                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)', fontFamily: 'var(--font-mono)' }}>
-                  Reconciled Journal ID: {activeJournal.journal_id}
+                <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center', marginTop: 'var(--space-1)' }}>
+                  <button
+                    type="button"
+                    onClick={handleCopyLink}
+                    className="btn btn-secondary"
+                    style={{
+                      padding: '4px 10px',
+                      fontSize: 'var(--text-xs)',
+                      fontWeight: 600,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                    }}
+                    title="Copy permanent shareable URL based on ISSN"
+                  >
+                    <span>🔗</span>
+                    <span>Copy Journal Link</span>
+                  </button>
                 </div>
               </div>
 
@@ -674,6 +880,55 @@ export const JournalExplorerPage: React.FC<JournalExplorerPageProps> = ({
                 </span>
               )}
             </div>
+
+            {/* Collapsible Methodology & Provenance Section */}
+            <div style={{ marginTop: 'var(--space-3)', paddingTop: 'var(--space-2)' }}>
+              <button
+                type="button"
+                onClick={() => setIsProvenanceOpen(!isProvenanceOpen)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  padding: 0,
+                  fontSize: 'var(--text-xs)',
+                  color: 'var(--dark-grey)',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  fontWeight: 600,
+                }}
+              >
+                <span>{isProvenanceOpen ? '▼' : '▶'}</span>
+                <span>Provenance & Identification Methodology</span>
+              </button>
+
+              {isProvenanceOpen && (
+                <div
+                  style={{
+                    marginTop: 'var(--space-2)',
+                    padding: 'var(--space-3)',
+                    backgroundColor: 'var(--light-grey)',
+                    borderRadius: 'var(--radius-sm)',
+                    fontSize: 'var(--text-xs)',
+                    color: 'var(--warm-black)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '4px',
+                  }}
+                >
+                  <div>
+                    <strong>Canonical Observatory Route:</strong> {getJournalProfileRoute(activeJournal.journal_id, identityIndex)}
+                  </div>
+                  <div>
+                    <strong>Data Identity Key:</strong> <code style={{ fontFamily: 'var(--font-mono)' }}>{activeJournal.journal_id}</code>
+                  </div>
+                  <div>
+                    <strong>Matching Explanation:</strong> {getMatchingExplanation(sampleRej?.strict_match_status || 'matched', sampleRej?.strict_match_method)}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Chronological Event Timeline Chart */}
@@ -687,7 +942,7 @@ export const JournalExplorerPage: React.FC<JournalExplorerPageProps> = ({
           {/* Historical Events Detail Table */}
           <div className="card">
             <h4 style={{ fontSize: 'var(--text-md)', marginBottom: 'var(--space-3)' }}>
-              Recorded Application & Status History (
+              Recorded Review & Indexing History (
               {journalRejections.length + journalWithdrawns.length + journalAccepted.length} total records)
             </h4>
 
@@ -716,8 +971,8 @@ export const JournalExplorerPage: React.FC<JournalExplorerPageProps> = ({
                   >
                     <div>
                       <strong>Rejection Record #{idx + 1}:</strong> {rej.source_record_id}
-                      <div style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)' }}>
-                        Match Status: {rej.strict_match_status} ({rej.strict_match_method || 'no match'})
+                      <div style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)', marginTop: '2px' }}>
+                        Match Status: {formatMatchStatus(rej.strict_match_status)} • {formatMatchingMethod(rej.strict_match_method)}
                       </div>
                     </div>
                     <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', fontWeight: 600 }}>
@@ -743,8 +998,8 @@ export const JournalExplorerPage: React.FC<JournalExplorerPageProps> = ({
                   >
                     <div>
                       <strong>Accepted Application Record #{idx + 1}:</strong> {acc.source_record_id}
-                      <div style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)' }}>
-                        Database entry date: {acc.added_day || '—'} • Decision date unverified in source
+                      <div style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)', marginTop: '2px' }}>
+                        Database catalog entry date: {acc.added_day || '—'} • Decision date unverified in source
                       </div>
                     </div>
                     <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', fontWeight: 600 }}>
@@ -785,7 +1040,10 @@ export const JournalExplorerPage: React.FC<JournalExplorerPageProps> = ({
             )}
           </div>
         </div>
-      ) : (
+      )}
+
+      {/* Initial Empty State (when no journal or search entered) */}
+      {!activeJournal && !slugResolution.isAmbiguous && !slugResolution.notFound && (
         <div
           className="card"
           style={{
@@ -798,10 +1056,10 @@ export const JournalExplorerPage: React.FC<JournalExplorerPageProps> = ({
           }}
         >
           <div style={{ fontSize: 'var(--text-lg)', fontWeight: 600, color: 'var(--warm-black)', marginBottom: 'var(--space-2)' }}>
-            Search or select a journal to inspect its complete dossier
+            Search or select a journal to inspect its complete profile
           </div>
           <p style={{ maxWidth: '600px', margin: '0 auto', fontSize: 'var(--text-sm)' }}>
-            Type at least 2 characters of a journal title, ISSN, or reconciled ID above to view suggestions, or navigate from any chart or table across the observatory.
+            Type at least 2 characters of a journal title, ISSN, or identifier above to view suggestions, or navigate from any chart or table across the observatory.
           </p>
         </div>
       )}
