@@ -498,8 +498,8 @@ export const DataQualityPage: React.FC = () => {
         </section>
       </div>
 
-      {/* Dataset Verification Manifest Table */}
-      <section className="card">
+      {/* Dataset Verification Manifest Table (Hidden per request) */}
+      <section className="card" style={{ display: 'none' }}>
         <h3 style={{ fontSize: 'var(--text-lg)', marginBottom: 'var(--space-2)' }}>
           Dataset Manifest & Conservation Verification
         </h3>
