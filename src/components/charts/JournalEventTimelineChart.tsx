@@ -1,24 +1,26 @@
 import React, { useMemo } from 'react';
 import { BaseEChart } from './BaseEChart';
-import { FactRejectedRecord, FactWithdrawnRecord } from '../../types';
+import { FactRejectedRecord, FactWithdrawnRecord, FactAcceptedRecord } from '../../types';
 import * as echarts from '../../lib/echarts';
 
 interface JournalTimelineProps {
   rejections: FactRejectedRecord[];
   withdrawals: FactWithdrawnRecord[];
+  accepted?: FactAcceptedRecord[];
   journalTitle: string;
 }
 
 export const JournalEventTimelineChart: React.FC<JournalTimelineProps> = ({
   rejections,
   withdrawals,
+  accepted = [],
   journalTitle,
 }) => {
   const events = useMemo(() => {
     const list: Array<{
       date: string;
       year: number;
-      type: 'Rejection' | 'Withdrawal' | 'Reinstatement';
+      type: 'Rejection' | 'Withdrawal' | 'Reinstatement' | 'Accepted Record';
       id: string;
       details: string;
       color: string;
@@ -33,6 +35,18 @@ export const JournalEventTimelineChart: React.FC<JournalTimelineProps> = ({
         id: r.source_record_id,
         details: `Rejection Record #${idx + 1} (${r.source_record_id}) • Match: ${r.strict_match_status}`,
         color: '#982E0A', // --sanguine
+      });
+    });
+
+    accepted.forEach((a, idx) => {
+      const d = a.added_day || (a.added_year ? `${a.added_year}-01-01` : '2022-01-01');
+      list.push({
+        date: d,
+        year: a.added_year || parseInt(d.slice(0, 4), 10),
+        type: 'Accepted Record',
+        id: a.source_record_id,
+        details: `Accepted Application Record #${idx + 1} (${a.source_record_id}) • Catalog entry date (decision date unverified in source)`,
+        color: '#245050', // --dark-navy / teal
       });
     });
 
@@ -60,13 +74,13 @@ export const JournalEventTimelineChart: React.FC<JournalTimelineProps> = ({
     });
 
     return list.sort((a, b) => a.date.localeCompare(b.date));
-  }, [rejections, withdrawals]);
+  }, [rejections, withdrawals, accepted]);
 
   const timelineOptions: echarts.EChartsOption = useMemo(() => {
     if (events.length === 0) return {};
 
     const dates = events.map((e) => e.date);
-    const types = ['Rejection', 'Withdrawal', 'Reinstatement'];
+    const types = ['Rejection', 'Accepted Record', 'Withdrawal', 'Reinstatement'];
 
     return {
       tooltip: {

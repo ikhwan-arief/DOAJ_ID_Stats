@@ -1,9 +1,17 @@
-import React, { useEffect, useState, useMemo } from 'react';
-import { loadDimJournals, loadFactRejected, loadFactWithdrawn, loadFactDoajCurrent, loadSintaSnapshot } from '../data/loader';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
+import {
+  loadDimJournals,
+  loadFactRejected,
+  loadFactWithdrawn,
+  loadFactAccepted,
+  loadFactDoajCurrent,
+  loadSintaSnapshot,
+} from '../data/loader';
 import {
   DimJournalRecord,
   FactRejectedRecord,
   FactWithdrawnRecord,
+  FactAcceptedRecord,
   FactDoajCurrentRecord,
   SintaSnapshotRecord,
   GlobalFilterState,
@@ -26,29 +34,47 @@ export const JournalExplorerPage: React.FC<JournalExplorerPageProps> = ({
   const [journals, setJournals] = useState<DimJournalRecord[] | null>(null);
   const [rejections, setRejections] = useState<FactRejectedRecord[] | null>(null);
   const [withdrawns, setWithdrawns] = useState<FactWithdrawnRecord[] | null>(null);
+  const [accepted, setAccepted] = useState<FactAcceptedRecord[] | null>(null);
   const [doajCurrent, setDoajCurrent] = useState<FactDoajCurrentRecord[] | null>(null);
   const [sintas, setSintas] = useState<Map<string, SintaSnapshotRecord> | null>(null);
   const [localSearch, setLocalSearch] = useState<string>('');
+  const [isDropdownOpen, setIsDropdownOpen] = useState<boolean>(false);
+  const [highlightedIndex, setHighlightedIndex] = useState<number>(-1);
   const [error, setError] = useState<string | null>(null);
+
+  const searchBoxRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     Promise.all([
       loadDimJournals(),
       loadFactRejected(),
       loadFactWithdrawn(),
+      loadFactAccepted(),
       loadFactDoajCurrent(),
       loadSintaSnapshot(),
     ])
-      .then(([dim, rej, withdr, curr, sintaList]) => {
+      .then(([dim, rej, withdr, acc, curr, sintaList]) => {
         setJournals(dim);
         setRejections(rej);
         setWithdrawns(withdr);
+        setAccepted(acc);
         setDoajCurrent(curr);
         const map = new Map<string, SintaSnapshotRecord>();
         sintaList.forEach((s) => map.set(s.journal_id, s));
         setSintas(map);
       })
       .catch((err) => setError(err.message || 'Failed to load journal explorer data'));
+  }, []);
+
+  // Close dropdown on click outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (searchBoxRef.current && !searchBoxRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   // Quick lookup indices by journal_id
@@ -87,27 +113,33 @@ export const JournalExplorerPage: React.FC<JournalExplorerPageProps> = ({
     return map;
   }, [withdrawns]);
 
-  // Combined search query (from local dossier search box or global filter)
+  const acceptedByJournal = useMemo(() => {
+    if (!accepted) return new Map<string, FactAcceptedRecord[]>();
+    const map = new Map<string, FactAcceptedRecord[]>();
+    accepted.forEach((a) => {
+      if (!a.journal_id) return;
+      const list = map.get(a.journal_id) || [];
+      list.push(a);
+      map.set(a.journal_id, list);
+    });
+    return map;
+  }, [accepted]);
+
+  // Combined search query (from local search box or global filter)
   const effectiveQuery = useMemo(() => {
     return (localSearch || filters.searchQuery || '').trim().toLowerCase();
   }, [localSearch, filters.searchQuery]);
 
-  // Search candidate matches (search Title, P-ISSN, E-ISSN, journal_id)
+  // Suggestions search: ONLY computed when effectiveQuery has at least 2 characters
   const candidateJournals = useMemo(() => {
-    if (!journals) return [];
-    if (!effectiveQuery) {
-      // Default: show a curated list of interesting journals (with historical rejection/withdrawal or currently indexed)
-      return journals
-        .filter((j) => j.in_rejected || j.in_withdrawn || j.in_current_doaj)
-        .slice(0, 15);
-    }
+    if (!journals || effectiveQuery.length < 2) return [];
 
     return journals.filter((j) => {
       const titleMatch = (j.display_title || '').toLowerCase().includes(effectiveQuery);
       const idMatch = j.journal_id.toLowerCase().includes(effectiveQuery);
       if (titleMatch || idMatch) return true;
 
-      // ISSN search
+      // ISSN search in SINTA
       const s = sintas?.get(j.journal_id);
       if (s) {
         if ((s.p_issn_raw || '').toLowerCase().includes(effectiveQuery)) return true;
@@ -116,12 +148,14 @@ export const JournalExplorerPage: React.FC<JournalExplorerPageProps> = ({
         if ((s.e_issn_normalized || '').toLowerCase().includes(effectiveQuery)) return true;
       }
 
+      // ISSN search in Current DOAJ
       const c = currentByJournal.get(j.journal_id);
       if (c) {
         if ((c.p_issn_raw || '').toLowerCase().includes(effectiveQuery)) return true;
         if ((c.e_issn_raw || '').toLowerCase().includes(effectiveQuery)) return true;
       }
 
+      // ISSN search in Rejections
       const rejList = rejectionsByJournal.get(j.journal_id);
       if (rejList && rejList[0]) {
         if ((rejList[0].p_issn_raw || '').toLowerCase().includes(effectiveQuery)) return true;
@@ -129,21 +163,17 @@ export const JournalExplorerPage: React.FC<JournalExplorerPageProps> = ({
       }
 
       return false;
-    }).slice(0, 50);
+    }).slice(0, 15);
   }, [journals, effectiveQuery, sintas, currentByJournal, rejectionsByJournal]);
 
-  // Active journal selection
+  // Active journal selection (ONLY from selectedJournalId or URL param, NOT arbitrary default)
   const activeJournal = useMemo(() => {
     if (!journals || journals.length === 0) return null;
     if (selectedJournalId) {
-      const found = journals.find((j) => j.journal_id === selectedJournalId);
-      if (found) return found;
+      return journals.find((j) => j.journal_id === selectedJournalId) || null;
     }
-    if (candidateJournals.length > 0) {
-      return candidateJournals[0];
-    }
-    return journals[0];
-  }, [selectedJournalId, journals, candidateJournals]);
+    return null;
+  }, [selectedJournalId, journals]);
 
   // Associated event records for active journal
   const journalRejections = useMemo(() => {
@@ -155,6 +185,11 @@ export const JournalExplorerPage: React.FC<JournalExplorerPageProps> = ({
     if (!activeJournal) return [];
     return withdrawnsByJournal.get(activeJournal.journal_id) || [];
   }, [activeJournal, withdrawnsByJournal]);
+
+  const journalAccepted = useMemo(() => {
+    if (!activeJournal) return [];
+    return acceptedByJournal.get(activeJournal.journal_id) || [];
+  }, [activeJournal, acceptedByJournal]);
 
   const activeSinta = useMemo(() => {
     if (!activeJournal || !sintas) return null;
@@ -169,12 +204,14 @@ export const JournalExplorerPage: React.FC<JournalExplorerPageProps> = ({
   // Resolve best available ISSNs, publisher, subjects, and verified public URLs
   const sampleRej = journalRejections[0];
   const sampleWith = journalWithdrawns[0];
+  const sampleAcc = journalAccepted[0];
 
   const pIssn =
     activeCurrent?.p_issn_raw ||
     activeSinta?.p_issn_raw ||
     sampleRej?.p_issn_raw ||
     sampleWith?.p_issn_raw ||
+    sampleAcc?.p_issn_raw ||
     '—';
 
   const eIssn =
@@ -182,6 +219,7 @@ export const JournalExplorerPage: React.FC<JournalExplorerPageProps> = ({
     activeSinta?.e_issn_raw ||
     sampleRej?.e_issn_raw ||
     sampleWith?.e_issn_raw ||
+    sampleAcc?.e_issn_raw ||
     '—';
 
   const publisher =
@@ -195,7 +233,8 @@ export const JournalExplorerPage: React.FC<JournalExplorerPageProps> = ({
     activeCurrent?.journal_url ||
     activeSinta?.website_url ||
     sampleRej?.journal_url ||
-    sampleWith?.journal_url;
+    sampleWith?.journal_url ||
+    sampleAcc?.journal_url;
 
   const sintaEditorUrl = activeSinta?.editor_url;
   const sintaUrl = activeSinta?.sinta_url;
@@ -209,11 +248,44 @@ export const JournalExplorerPage: React.FC<JournalExplorerPageProps> = ({
     activeJournal?.current_doaj_status ||
     (activeCurrent ? 'currently_indexed' : 'not_found');
 
+  const handleSelectSuggestion = (journalId: string) => {
+    onSelectJournal(journalId);
+    setIsDropdownOpen(false);
+    setHighlightedIndex(-1);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!isDropdownOpen || candidateJournals.length === 0) {
+      if (e.key === 'ArrowDown' && candidateJournals.length > 0) {
+        setIsDropdownOpen(true);
+        setHighlightedIndex(0);
+        e.preventDefault();
+      }
+      return;
+    }
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setHighlightedIndex((prev) => (prev < candidateJournals.length - 1 ? prev + 1 : 0));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setHighlightedIndex((prev) => (prev > 0 ? prev - 1 : candidateJournals.length - 1));
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (highlightedIndex >= 0 && highlightedIndex < candidateJournals.length) {
+        handleSelectSuggestion(candidateJournals[highlightedIndex].journal_id);
+      }
+    } else if (e.key === 'Escape') {
+      setIsDropdownOpen(false);
+      setHighlightedIndex(-1);
+    }
+  };
+
   if (error) {
     return <Alert type="warning" title="Error Loading Journal Explorer">{error}</Alert>;
   }
 
-  if (!journals || !rejections || !withdrawns || !doajCurrent || !sintas) {
+  if (!journals || !rejections || !withdrawns || !accepted || !doajCurrent || !sintas) {
     return <LoadingState message="Loading reconciled journal identities (18,564 resolved entities)..." />;
   }
 
@@ -238,12 +310,13 @@ export const JournalExplorerPage: React.FC<JournalExplorerPageProps> = ({
         <p style={{ color: 'var(--dark-grey)', maxWidth: '900px' }}>
           Search-first dossier system for scholarly journals across Indonesia ({journals.length.toLocaleString()} resolved entities).
           Search by Journal Title, P-ISSN, E-ISSN, or Reconciled ID to inspect accreditation, current DOAJ indexing status,
-          verified public URLs, and linked historical application events.
+          verified public URLs, and linked historical application and withdrawal events.
         </p>
       </div>
 
-      {/* Prominent Search Bar */}
+      {/* Prominent Search Bar with Auto-Suggest Dropdown */}
       <div
+        ref={searchBoxRef}
         className="card"
         style={{
           padding: 'var(--space-4)',
@@ -251,6 +324,7 @@ export const JournalExplorerPage: React.FC<JournalExplorerPageProps> = ({
           border: '2px solid var(--warm-black)',
           borderRadius: 'var(--radius-md)',
           boxShadow: 'var(--shadow-sm)',
+          position: 'relative',
         }}
       >
         <label
@@ -270,12 +344,23 @@ export const JournalExplorerPage: React.FC<JournalExplorerPageProps> = ({
             id="journal-search-input"
             type="search"
             value={localSearch}
-            onChange={(e) => setLocalSearch(e.target.value)}
-            placeholder="e.g. Unnes Science Education, 2252-6617, 2656-9779, or sinta:bac57293..."
+            onChange={(e) => {
+              setLocalSearch(e.target.value);
+              setIsDropdownOpen(e.target.value.trim().length >= 2);
+              setHighlightedIndex(-1);
+            }}
+            onFocus={() => {
+              if (localSearch.trim().length >= 2) {
+                setIsDropdownOpen(true);
+              }
+            }}
+            onKeyDown={handleKeyDown}
+            placeholder="Search by title, ISSN (e.g. 2252-6617), or ID (e.g. sinta:bac57293)..."
             className="input-search"
+            autoComplete="off"
             style={{
               flex: 1,
-              padding: '10px 14px',
+              padding: '12px 16px',
               fontSize: 'var(--text-base)',
               border: '1px solid var(--neutral-border)',
               borderRadius: 'var(--radius-sm)',
@@ -286,60 +371,92 @@ export const JournalExplorerPage: React.FC<JournalExplorerPageProps> = ({
             <button
               type="button"
               className="btn btn-secondary"
-              onClick={() => setLocalSearch('')}
-              style={{ padding: '8px 14px', fontSize: 'var(--text-sm)' }}
+              onClick={() => {
+                setLocalSearch('');
+                setIsDropdownOpen(false);
+              }}
+              style={{ padding: '10px 16px', fontSize: 'var(--text-sm)' }}
             >
               Clear
             </button>
           )}
         </div>
 
-        {/* Candidate Selector Bar */}
-        {candidateJournals.length > 0 && (
-          <div style={{ marginTop: 'var(--space-3)' }}>
-            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)', marginBottom: 'var(--space-2)' }}>
-              Matching Candidates ({candidateJournals.length}):
-            </div>
-            <div
-              style={{
-                display: 'flex',
-                flexWrap: 'wrap',
-                gap: 'var(--space-2)',
-                maxHeight: '120px',
-                overflowY: 'auto',
-                paddingBottom: '4px',
-              }}
-            >
-              {candidateJournals.map((cand) => {
-                const isSelected = activeJournal && activeJournal.journal_id === cand.journal_id;
-                return (
-                  <button
-                    key={cand.journal_id}
-                    type="button"
-                    onClick={() => {
-                      onSelectJournal(cand.journal_id);
-                    }}
-                    style={{
-                      padding: '4px 10px',
-                      borderRadius: 'var(--radius-sm)',
-                      fontSize: 'var(--text-xs)',
-                      fontWeight: isSelected ? 700 : 500,
-                      border: isSelected ? '2px solid var(--sanguine)' : '1px solid var(--neutral-border)',
-                      backgroundColor: isSelected ? 'var(--sanguine-10)' : 'var(--white)',
-                      color: isSelected ? 'var(--sanguine)' : 'var(--warm-black)',
-                      cursor: 'pointer',
-                      whiteSpace: 'nowrap',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                    }}
-                  >
-                    <span>{cand.display_title || cand.journal_id}</span>
-                    <RankBadge rank={cand.sinta_rank} />
-                  </button>
-                );
-              })}
-            </div>
+        {/* Suggestion Dropdown (Only shown when query >= 2 chars and dropdown is open) */}
+        {isDropdownOpen && effectiveQuery.length >= 2 && (
+          <div
+            style={{
+              position: 'absolute',
+              top: '100%',
+              left: 0,
+              right: 0,
+              zIndex: 100,
+              backgroundColor: 'var(--white)',
+              border: '1px solid var(--neutral-border)',
+              borderRadius: '0 0 var(--radius-md) var(--radius-md)',
+              boxShadow: 'var(--shadow-md)',
+              maxHeight: '320px',
+              overflowY: 'auto',
+              marginTop: '2px',
+            }}
+          >
+            {candidateJournals.length > 0 ? (
+              <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+                {candidateJournals.map((cand, idx) => {
+                  const isHighlighted = idx === highlightedIndex;
+                  return (
+                    <li
+                      key={cand.journal_id}
+                      onClick={() => handleSelectSuggestion(cand.journal_id)}
+                      onMouseEnter={() => setHighlightedIndex(idx)}
+                      style={{
+                        padding: '10px 16px',
+                        borderBottom: '1px solid var(--light-grey)',
+                        cursor: 'pointer',
+                        backgroundColor: isHighlighted ? 'var(--sand-light)' : 'transparent',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        gap: 'var(--space-2)',
+                      }}
+                    >
+                      <div style={{ overflow: 'hidden' }}>
+                        <div
+                          style={{
+                            fontWeight: 600,
+                            fontSize: 'var(--text-sm)',
+                            color: 'var(--warm-black)',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                          }}
+                        >
+                          {cand.display_title || cand.journal_id}
+                        </div>
+                        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)', fontFamily: 'var(--font-mono)' }}>
+                          ID: {cand.journal_id}
+                          {cand.in_current_doaj && (
+                            <span style={{ color: 'var(--dark-green)', fontWeight: 600, marginLeft: '8px' }}>
+                              • Indexed in DOAJ
+                            </span>
+                          )}
+                          {cand.in_rejected && (
+                            <span style={{ color: 'var(--sanguine)', fontWeight: 600, marginLeft: '8px' }}>
+                              • Rejected
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <RankBadge rank={cand.sinta_rank} />
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <div style={{ padding: '16px', textAlign: 'center', color: 'var(--dark-grey)', fontSize: 'var(--text-sm)' }}>
+                No matching journals found for "<strong>{effectiveQuery}</strong>". Check the spelling or try searching by ISSN.
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -417,6 +534,11 @@ export const JournalExplorerPage: React.FC<JournalExplorerPageProps> = ({
                   </span>
                 )}
                 {activeJournal.in_rejected && <span className="badge badge-rejected">Historical Rejection</span>}
+                {activeJournal.in_accepted && (
+                  <span className="badge" style={{ backgroundColor: 'var(--dark-navy)', color: 'var(--white)' }}>
+                    Historical Acceptance Record
+                  </span>
+                )}
                 {activeJournal.in_withdrawn && <span className="badge badge-withdrawn">Historical Withdrawal</span>}
               </div>
             </div>
@@ -558,18 +680,20 @@ export const JournalExplorerPage: React.FC<JournalExplorerPageProps> = ({
           <JournalEventTimelineChart
             rejections={journalRejections}
             withdrawals={journalWithdrawns}
+            accepted={journalAccepted}
             journalTitle={activeJournal.display_title || activeJournal.journal_id}
           />
 
           {/* Historical Events Detail Table */}
           <div className="card">
             <h4 style={{ fontSize: 'var(--text-md)', marginBottom: 'var(--space-3)' }}>
-              Recorded Event History ({journalRejections.length + journalWithdrawns.length} total historical events)
+              Recorded Application & Status History (
+              {journalRejections.length + journalWithdrawns.length + journalAccepted.length} total records)
             </h4>
 
-            {journalRejections.length === 0 && journalWithdrawns.length === 0 ? (
+            {journalRejections.length === 0 && journalWithdrawns.length === 0 && journalAccepted.length === 0 ? (
               <p style={{ fontSize: 'var(--text-sm)', color: 'var(--dark-grey)' }}>
-                No historical rejection or withdrawal records attached to this journal identifier.
+                No historical rejection, withdrawal, or recorded application records attached to this journal identifier.
                 {currentStatus === 'currently_indexed' && ' This journal holds active indexing in DOAJ.'}
               </p>
             ) : (
@@ -598,6 +722,33 @@ export const JournalExplorerPage: React.FC<JournalExplorerPageProps> = ({
                     </div>
                     <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', fontWeight: 600 }}>
                       {rej.event_day || rej.event_at_raw || '—'}
+                    </span>
+                  </li>
+                ))}
+                {journalAccepted.map((acc, idx) => (
+                  <li
+                    key={acc.source_record_id}
+                    style={{
+                      padding: 'var(--space-2) var(--space-3)',
+                      backgroundColor: 'var(--sand-light)',
+                      borderLeft: '4px solid var(--dark-navy)',
+                      borderRadius: 'var(--radius-sm)',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      fontSize: 'var(--text-sm)',
+                      flexWrap: 'wrap',
+                      gap: 'var(--space-2)',
+                    }}
+                  >
+                    <div>
+                      <strong>Accepted Application Record #{idx + 1}:</strong> {acc.source_record_id}
+                      <div style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)' }}>
+                        Database entry date: {acc.added_day || '—'} • Decision date unverified in source
+                      </div>
+                    </div>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', fontWeight: 600 }}>
+                      Entry: {acc.added_day || '—'}
                     </span>
                   </li>
                 ))}
@@ -635,8 +786,23 @@ export const JournalExplorerPage: React.FC<JournalExplorerPageProps> = ({
           </div>
         </div>
       ) : (
-        <div className="card" style={{ padding: 'var(--space-6)', textAlign: 'center', color: 'var(--dark-grey)' }}>
-          No journal selected. Enter a query above to inspect a journal dossier.
+        <div
+          className="card"
+          style={{
+            padding: 'var(--space-6)',
+            textAlign: 'center',
+            color: 'var(--dark-grey)',
+            backgroundColor: 'var(--white)',
+            borderRadius: 'var(--radius-md)',
+            border: '1px dashed var(--neutral-border)',
+          }}
+        >
+          <div style={{ fontSize: 'var(--text-lg)', fontWeight: 600, color: 'var(--warm-black)', marginBottom: 'var(--space-2)' }}>
+            Search or select a journal to inspect its complete dossier
+          </div>
+          <p style={{ maxWidth: '600px', margin: '0 auto', fontSize: 'var(--text-sm)' }}>
+            Type at least 2 characters of a journal title, ISSN, or reconciled ID above to view suggestions, or navigate from any chart or table across the observatory.
+          </p>
         </div>
       )}
     </div>

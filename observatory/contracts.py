@@ -56,10 +56,19 @@ SINTA_COLUMNS = frozenset(
 SOURCE_CONTRACTS = (
     SourceContract(
         dataset="rejected",
-        filename="ID_-_Rejected_applications_2026-11-14T22_08_29Z.csv",
-        expected_rows=8_898,
+        filename="ID_-_Rejected_2026-11-15T01_49_31Z.csv",
+        expected_rows=9_308,
         expected_columns=53,
         required_columns=DOAJ_COMMON_COLUMNS | {"Date Rejected"},
+        p_issn_column="Journal ISSN (print version)",
+        e_issn_column="Journal EISSN (online version)",
+    ),
+    SourceContract(
+        dataset="accepted",
+        filename="ID_-_Accepted_2026-11-15T01_46_10Z.csv",
+        expected_rows=1_421,
+        expected_columns=53,
+        required_columns=DOAJ_COMMON_COLUMNS | {"Added on Date", "Last updated Date"},
         p_issn_column="Journal ISSN (print version)",
         e_issn_column="Journal EISSN (online version)",
     ),
@@ -112,6 +121,25 @@ PUBLIC_FIELD_ALLOWLISTS: dict[str, frozenset[str]] = {
             "country_of_publisher",
             "subjects",
             "event_at_raw",
+        }
+    ),
+    "accepted": frozenset(
+        {
+            "source_dataset",
+            "source_record_id",
+            "journal_title",
+            "journal_url",
+            "p_issn_raw",
+            "e_issn_raw",
+            "p_issn_normalized",
+            "e_issn_normalized",
+            "p_issn_quality",
+            "e_issn_quality",
+            "publisher",
+            "country_of_publisher",
+            "subjects",
+            "added_on_raw",
+            "last_updated_raw",
         }
     ),
     "withdrawn": frozenset(

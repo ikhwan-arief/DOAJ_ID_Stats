@@ -55,6 +55,7 @@ def verify_frontend_copy_and_manifest() -> None:
 def verify_kpis(payloads: dict[str, object]) -> None:
     rejected = payloads["fact_rejected_public.json"]
     withdrawn = payloads["fact_withdrawn_public.json"]
+    accepted = payloads.get("fact_accepted_public.json", [])
     sinta = payloads["sinta_snapshot_public.json"]
     doaj_current = payloads["fact_doaj_current_public.json"]
     histories = payloads["rejection_history_public.json"]
@@ -63,15 +64,18 @@ def verify_kpis(payloads: dict[str, object]) -> None:
 
     require(summary["source_record_counts"]["rejected"] == len(rejected), "rejected source-record KPI mismatch")
     require(summary["source_record_counts"]["withdrawn"] == len(withdrawn), "withdrawn source-record KPI mismatch")
+    if "accepted" in summary["source_record_counts"]:
+        require(summary["source_record_counts"]["accepted"] == len(accepted), "accepted source-record KPI mismatch")
     require(summary["source_record_counts"]["sinta"] == len(sinta), "sinta source-record KPI mismatch")
     require(summary["source_record_counts"]["doaj_current_indonesia"] == len(doaj_current), "doaj_current source-record KPI mismatch")
     require(len(doaj_current) == 2733, "doaj_current indonesia count must be 2733")
 
+    eval_records = rejected + withdrawn + accepted if accepted else rejected + withdrawn
     require(summary["strict_match_status_counts"] == dict(sorted(Counter(
-        record["strict_match_status"] for record in rejected + withdrawn
+        record["strict_match_status"] for record in eval_records
     ).items())), "strict match KPI mismatch")
     require(summary["extended_match_status_counts"] == dict(sorted(Counter(
-        record["extended_match_status"] for record in rejected + withdrawn
+        record["extended_match_status"] for record in eval_records
     ).items())), "extended match KPI mismatch")
 
     rank_sources = Counter(record["sinta_rank"] for record in sinta)

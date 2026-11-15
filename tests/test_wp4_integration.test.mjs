@@ -14,14 +14,15 @@ test('WP4 Production Integration: Real Validated Outputs & Quality Gates', async
     assert.ok(fs.existsSync(summaryPath), 'summary_public.json must exist in public/data/v1');
 
     const summary = JSON.parse(fs.readFileSync(summaryPath, 'utf8'));
-    assert.equal(summary.source_record_counts.rejected, 8898, 'Rejected source rows must be 8,898');
+    assert.equal(summary.source_record_counts.rejected, 9308, 'Rejected source rows must be 9,308');
+    assert.equal(summary.source_record_counts.accepted, 1421, 'Accepted source rows must be 1,421');
     assert.equal(summary.source_record_counts.withdrawn, 570, 'Withdrawn source rows must be 570');
     assert.equal(summary.source_record_counts.sinta, 16620, 'SINTA source rows must be 16,620');
     assert.equal(summary.source_record_counts.doaj_current_indonesia, 2733, 'Current DOAJ Indonesia records must be 2,733');
-    assert.equal(summary.intersection_universe_count, 18370, 'Intersection universe must be 18,370');
-    assert.equal(summary.repeat_record_journals, 1917, 'Repeat record journals must be 1,917');
-    assert.equal(summary.repeat_date_journals, 1894, 'Repeat date journals must be 1,894');
-    assert.equal(summary.repeat_year_journals, 1568, 'Repeat year journals must be 1,568');
+    assert.equal(summary.intersection_universe_count, 18404, 'Intersection universe must be 18,404');
+    assert.equal(summary.repeat_record_journals, 2026, 'Repeat record journals must be 2,026');
+    assert.equal(summary.repeat_date_journals, 2004, 'Repeat date journals must be 2,004');
+    assert.equal(summary.repeat_year_journals, 1647, 'Repeat year journals must be 1,647');
   });
 
   await t.test('Current DOAJ dataset fact_doaj_current_public.json exists and reconciles', () => {
@@ -47,7 +48,7 @@ test('WP4 Production Integration: Real Validated Outputs & Quality Gates', async
     const summary = JSON.parse(fs.readFileSync(summaryPath, 'utf8'));
 
     const sumCount = summary.venn_regions.reduce((acc, r) => acc + r.count, 0);
-    assert.equal(sumCount, 18370, 'Sum of all 7 Venn partitions must equal exactly 18,370');
+    assert.equal(sumCount, 18404, 'Sum of all 7 Venn partitions must equal exactly 18,404');
   });
 
   await t.test('No /admin/application/ route in built dist or src code', () => {

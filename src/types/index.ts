@@ -38,6 +38,29 @@ export interface CurrentDoajSummary {
   withdrawn_journals_current_status: Record<string, number>;
 }
 
+export interface LifecycleSummary {
+  rejected_journals_total: number;
+  accepted_journals_total: number;
+  withdrawn_journals_total: number;
+  current_indexed_journals_total: number;
+  rejected_and_accepted_journals: number;
+  rejected_and_withdrawn: number;
+  rejected_and_currently_indexed: number;
+  accepted_and_currently_indexed: number;
+  accepted_and_withdrawn: number;
+  withdrawn_and_currently_indexed: number;
+  rejected_accepted_and_indexed: number;
+  rejection_frequency_outcomes: Record<
+    string,
+    {
+      total_journals: number;
+      currently_indexed: number;
+      accepted_overlap: number;
+      withdrawn_overlap: number;
+    }
+  >;
+}
+
 export interface SummaryPublic {
   schema_version: string;
   as_of: {
@@ -49,6 +72,7 @@ export interface SummaryPublic {
     rejected: number;
     withdrawn: number;
     sinta: number;
+    accepted?: number;
     doaj_current_total?: number;
     doaj_current_indonesia?: number;
   };
@@ -56,11 +80,13 @@ export interface SummaryPublic {
     rejected_resolved_journals: number;
     withdrawn_resolved_journals: number;
     sinta_journals: number;
+    accepted_resolved_journals?: number;
     current_doaj_unique_journals?: number;
     unresolved_doaj_source_records: number;
     unresolved_current_doaj_records?: number;
   };
   current_doaj_summary?: CurrentDoajSummary;
+  lifecycle_summary?: LifecycleSummary;
   intersection_universe_count: number;
   strict_match_status_counts: {
     matched: number;
@@ -86,6 +112,36 @@ export interface SummaryPublic {
     S: boolean;
     count: number;
   }>;
+}
+
+export interface FactAcceptedRecord {
+  source_record_id: string;
+  source_dataset: 'accepted';
+  journal_id: string | null;
+  journal_title: string;
+  journal_url?: string | null;
+  p_issn_raw: string;
+  p_issn_normalized: string | null;
+  p_issn_quality: IssnQuality;
+  e_issn_raw: string;
+  e_issn_normalized: string | null;
+  e_issn_quality: IssnQuality;
+  added_on_raw?: string | null;
+  added_day?: string | null;
+  added_year?: number | null;
+  last_updated_raw?: string | null;
+  last_updated_day?: string | null;
+  last_updated_year?: number | null;
+  decision_date_verified: boolean;
+  strict_match_status: 'matched' | 'unmatched';
+  strict_match_method: string | null;
+  extended_match_status: 'matched' | 'unmatched' | 'ambiguous';
+  extended_match_method: string | null;
+  extended_journal_id: string | null;
+  extended_sinta_rank: SintaRank;
+  identity_status: 'resolved' | 'unresolved';
+  sinta_rank: SintaRank;
+  current_doaj_status?: CurrentDoajStatus;
 }
 
 export interface FactRejectedRecord {
@@ -189,6 +245,7 @@ export interface DimJournalRecord {
   display_title: string;
   sinta_rank: SintaRank;
   in_rejected: boolean;
+  in_accepted?: boolean;
   in_withdrawn: boolean;
   in_sinta: boolean;
   in_current_doaj?: boolean;

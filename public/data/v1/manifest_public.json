@@ -1,21 +1,22 @@
 {
-  "etl_commit": "d0ac70572a374eedfc42943c26d3b0658f8d3a9a",
+  "etl_commit": "0517c52",
   "outputs": {
-    "data_quality_public.json": "790e26ec0eea06690e25b60c7936a2b7c9ae276d4aaafd3a8b591386c78da5f3",
-    "dim_journals_public.json": "703aa3dadfd7acf697cef4a94bbfbcf2975ec52191a871121d83e93d4d701cff",
+    "data_quality_public.json": "4eab0a06cf08b8965839266c14d96bcf61c7dafafce1fbb92eff63e1efe3c695",
+    "dim_journals_public.json": "f97a0295338a1ec59b8bae5412f5f3310c2b7f05dc2e6cb20e32684a01b21a35",
+    "fact_accepted_public.json": "bae002eed77ee2aa60e92ec870353d77a7083a2f2f3ff0ce1e47b0fcc356647d",
     "fact_doaj_current_public.json": "638d505262d9ec99f67ae6272a0136554f98729db34de6d06b7dd285845aea74",
-    "fact_rejected_public.json": "dc90c1081a7716c32ffc9393bfbf194003134e60bc1ede13166c8e9f48d05994",
+    "fact_rejected_public.json": "7d0593ae6823572f06005313a69619201a0cb171d9cf06562ee4057155a3ff6e",
     "fact_withdrawn_public.json": "b77d6e083d92be57c93798ae0f7b5cb3719411790117fca8977ca35262b58484",
-    "intersections_public.json": "41d76fd9dcd4389c1748ed7ffb90ab054fdebc1767db7f624141ad48ee4f36e1",
-    "match_audit_public.json": "a113fa021241dbb89ba7dcf840e5ff5ff45ea74ff47b8b76942f397da604c6f5",
-    "rejection_history_public.json": "aeedcc8c973a4cbacb959fbdc399c5728b2f571bbc9fd3c7b1461e2d038a183d",
+    "intersections_public.json": "c98f799f8aec053449651ed1b1568a834a82b6b3de5efa1d33024f78fdb7d6a4",
+    "match_audit_public.json": "81cd871ee4ae2de0088ac80be9961ff79b01b0580223577de0e5d06f8ca4d16a",
+    "rejection_history_public.json": "7bfa9537b7953ca95b2f7f49c54cb22d011f44f115d9afb0c81df71e745a46e5",
     "sinta_snapshot_public.json": "6b9eae2d24ffe828403585a3c7ba7ba3f35d0ab6ce7017c4837b4e688188ed4f",
-    "summary_public.json": "a5a89706c488be9980ecf0b9b6bd0430071486be33a9f8ec8cf9da2067ef989d"
+    "summary_public.json": "10229f134d266d10c7cc8ea5b0205ce283f80438bb8835ad16da2046e4b3271e"
   },
   "schema_version": "1.0.0",
   "source_dates": {
     "doaj_current_snapshot": "2026-11-15",
-    "doaj_export_utc": "2026-11-14",
+    "doaj_export_utc": "2026-11-15",
     "sinta_snapshot": "2026-11-15"
   },
   "sources": [
@@ -23,9 +24,17 @@
       "column_count": 53,
       "encoding": "utf-8-sig",
       "header_sha256": "6121bf798a43815e444aee5cd08587b9504333500123741af68ec416b60954f0",
-      "row_count": 8898,
-      "sha256": "4a5bbe8f2cd83df9a9c414a0de8338129efa7b9357c78933b1dbc2a135a2ac52",
+      "row_count": 9308,
+      "sha256": "62f701a148156c1a7022f4745752f28b076b2689dfddc70a475c35e3e932a9eb",
       "source_name": "rejected"
+    },
+    {
+      "column_count": 53,
+      "encoding": "utf-8-sig",
+      "header_sha256": "6121bf798a43815e444aee5cd08587b9504333500123741af68ec416b60954f0",
+      "row_count": 1421,
+      "sha256": "15de59bc3986cf49a6945e8c5c799da3368eb70ec1e6d835d8fcb8ec29c1ff69",
+      "source_name": "accepted"
     },
     {
       "column_count": 59,

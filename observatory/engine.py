@@ -94,7 +94,7 @@ class DataEngine:
         contracts = {contract.dataset: contract for contract in SOURCE_CONTRACTS}
         rows = {
             name: list(iter_lossless_rows(self.raw_dir, contracts[name]))
-            for name in ("rejected", "withdrawn", "sinta", "doaj_current")
+            for name in ("rejected", "accepted", "withdrawn", "sinta", "doaj_current")
         }
 
         sinta_signature_to_id: dict[tuple[str, ...], str] = {}
@@ -143,7 +143,7 @@ class DataEngine:
             return MatchResult("unmatched", method, None, 0)
 
         doaj_signature_to_id: dict[tuple[str, ...], str] = {}
-        fact_rejected, fact_withdrawn, audits = [], [], []
+        fact_rejected, fact_accepted, fact_withdrawn, audits = [], [], [], []
         journal_titles: dict[str, str | None] = {}
 
         def reconcile_doaj(row: dict[str, Any]) -> tuple[str, MatchResult, MatchResult, bool]:
@@ -165,8 +165,8 @@ class DataEngine:
             if (row["source_row"].get("Country of publisher") or "").strip().lower() == "indonesia"
         ]
 
-        # Reconcile historical rejected & withdrawn
-        for dataset in ("rejected", "withdrawn"):
+        # Reconcile historical rejected, accepted & withdrawn
+        for dataset in ("rejected", "accepted", "withdrawn"):
             for row in rows[dataset]:
                 source = row["source_row"]
                 journal_id, strict, extended, unresolved = reconcile_doaj(row)
@@ -212,6 +212,19 @@ class DataEngine:
                         event_month=event["month"], event_year=event["year"],
                     )
                     fact_rejected.append(base)
+                elif dataset == "accepted":
+                    added = _date_parts(source.get("Added on Date"))
+                    updated = _date_parts(source.get("Last updated Date"))
+                    base.update(
+                        added_on_raw=added["raw"],
+                        added_day=added["day"],
+                        added_year=added["year"],
+                        last_updated_raw=updated["raw"],
+                        last_updated_day=updated["day"],
+                        last_updated_year=updated["year"],
+                        decision_date_verified=False,
+                    )
+                    fact_accepted.append(base)
                 else:
                     withdrawn = _date_parts(source.get("Last Withdrawn Date"))
                     reinstated = _date_parts(source.get("Last Reinstated Date"))
@@ -312,14 +325,14 @@ class DataEngine:
             journal_id: (next(iter(ranks)) if len(ranks) == 1 else "ambiguous")
             for journal_id, ranks in journal_ranks.items()
         }
-        for record in fact_rejected + fact_withdrawn + fact_doaj_current:
+        for record in fact_rejected + fact_accepted + fact_withdrawn + fact_doaj_current:
             if record.get("strict_match_status") == "matched" or record.get("sinta_match_status") == "matched":
                 record["sinta_rank"] = resolved_rank.get(record["journal_id"], "NA")
             if record.get("extended_match_status") == "matched" and record.get("extended_journal_id"):
                 record["extended_sinta_rank"] = resolved_rank.get(record["extended_journal_id"], "NA")
 
-        # Assign current DOAJ status to fact_rejected and fact_withdrawn records
-        for record in fact_rejected + fact_withdrawn:
+        # Assign current DOAJ status to fact records
+        for record in fact_rejected + fact_accepted + fact_withdrawn:
             jid = record["journal_id"]
             if record["identity_status"] == "unresolved" or jid in current_unresolved_jids:
                 record["current_doaj_status"] = "requires_review"
@@ -355,12 +368,15 @@ class DataEngine:
             )
 
         unresolved_ids = {
-            record["journal_id"] for record in fact_rejected + fact_withdrawn
+            record["journal_id"] for record in fact_rejected + fact_accepted + fact_withdrawn
             if record["identity_status"] == "unresolved"
         }
         r_set = {record["journal_id"] for record in fact_rejected} - unresolved_ids
+        a_set = {record["journal_id"] for record in fact_accepted} - unresolved_ids
         w_set = {record["journal_id"] for record in fact_withdrawn} - unresolved_ids
         s_set = set(sinta_row_journal.values())
+
+        # Conserved 3-set RWS Venn (Historical baseline)
         regions = []
         for in_r, in_w, in_s in (
             (True, False, False), (False, True, False), (False, False, True),
@@ -384,6 +400,33 @@ class DataEngine:
             {"region": "DS", "in_doaj": True, "in_sinta": True, "count": len(both_ds), "journal_ids": sorted(both_ds)},
         ]
 
+        # Lifecycle overlap calculations
+        rejected_and_accepted = r_set & a_set
+        accepted_and_current = a_set & current_resolved_jids
+        accepted_and_withdrawn = a_set & w_set
+        rejected_and_current = r_set & current_resolved_jids
+        withdrawn_and_current = w_set & current_resolved_jids
+        rejected_and_withdrawn = r_set & w_set
+        rejected_accepted_current = r_set & a_set & current_resolved_jids
+
+        # Rejection frequency outcomes
+        rej_by_jid = defaultdict(list)
+        for r in fact_rejected:
+            rej_by_jid[r["journal_id"]].append(r)
+        
+        freq_outcome_buckets = ["1", "2", "3", "4", "5", "6+"]
+        freq_outcome_data = {b: {"total": 0, "currently_indexed": 0, "accepted_overlap": 0, "withdrawn_overlap": 0} for b in freq_outcome_buckets}
+        for jid in r_set:
+            count = len(rej_by_jid[jid])
+            b = str(count) if count < 6 else "6+"
+            freq_outcome_data[b]["total"] += 1
+            if jid in current_resolved_jids:
+                freq_outcome_data[b]["currently_indexed"] += 1
+            if jid in a_set:
+                freq_outcome_data[b]["accepted_overlap"] += 1
+            if jid in w_set:
+                freq_outcome_data[b]["withdrawn_overlap"] += 1
+
         # SINTA rank coverage in current DOAJ
         rank_source_counts = Counter(record["sinta_rank"] for record in sinta_records)
         rank_journal_counts = Counter(resolved_rank.values())
@@ -394,10 +437,14 @@ class DataEngine:
             for rank in RANKS
         }
 
-        # Status counts for rejected and withdrawn journals
+        # Status counts for rejected, accepted and withdrawn journals
         rejected_current_status_counts = Counter(
             "requires_review" if jid in current_unresolved_jids else ("currently_indexed" if jid in current_resolved_jids else "not_found")
             for jid in r_set
+        )
+        accepted_current_status_counts = Counter(
+            "requires_review" if jid in current_unresolved_jids else ("currently_indexed" if jid in current_resolved_jids else "not_found")
+            for jid in a_set
         )
         withdrawn_current_status_counts = Counter(
             "requires_review" if jid in current_unresolved_jids else ("currently_indexed" if jid in current_resolved_jids else "not_found")
@@ -411,15 +458,22 @@ class DataEngine:
             if journal_id in resolved_rank
         )
         repeat_histogram = Counter(history["source_record_count"] for history in histories if history["identity_status"] == "resolved")
+
+        min_rej_date = min((r["event_at_raw"] for r in fact_rejected if r["event_at_raw"]), default=None)
+        max_rej_date = max((r["event_at_raw"] for r in fact_rejected if r["event_at_raw"]), default=None)
+
         summary = {
             "schema_version": SCHEMA_VERSION,
             "as_of": {
                 "sinta_snapshot": "2026-11-15",
-                "doaj_export_utc": "2026-11-14",
+                "doaj_export_utc": "2026-11-15",
                 "doaj_current_snapshot": "2026-11-15",
+                "rejection_min_date": min_rej_date,
+                "rejection_max_date": max_rej_date,
             },
             "source_record_counts": {
                 "rejected": len(rows["rejected"]),
+                "accepted": len(rows["accepted"]),
                 "withdrawn": len(rows["withdrawn"]),
                 "sinta": len(rows["sinta"]),
                 "doaj_current_total": len(rows["doaj_current"]),
@@ -427,11 +481,26 @@ class DataEngine:
             },
             "identity_counts": {
                 "rejected_resolved_journals": len(r_set),
+                "accepted_resolved_journals": len(a_set),
                 "withdrawn_resolved_journals": len(w_set),
                 "sinta_journals": len(s_set),
                 "current_doaj_unique_journals": len(current_resolved_jids),
                 "unresolved_doaj_source_records": sum(1 for audit in audits if audit["strict_status"] == "ambiguous"),
                 "unresolved_current_doaj_records": len(current_unresolved_jids),
+            },
+            "lifecycle_summary": {
+                "rejected_journals_total": len(r_set),
+                "accepted_journals_total": len(a_set),
+                "withdrawn_journals_total": len(w_set),
+                "current_indexed_journals_total": len(current_resolved_jids),
+                "rejected_and_accepted_journals": len(rejected_and_accepted),
+                "accepted_and_currently_indexed": len(accepted_and_current),
+                "accepted_and_withdrawn": len(accepted_and_withdrawn),
+                "rejected_and_currently_indexed": len(rejected_and_current),
+                "withdrawn_and_currently_indexed": len(withdrawn_and_current),
+                "rejected_and_withdrawn": len(rejected_and_withdrawn),
+                "rejected_accepted_and_indexed": len(rejected_accepted_current),
+                "rejection_frequency_outcomes": freq_outcome_data,
             },
             "current_doaj_summary": {
                 "total_source_records": len(rows["doaj_current"]),
@@ -445,6 +514,7 @@ class DataEngine:
                 "rank_coverage_counts": {rank: current_doaj_rank_counts.get(rank, 0) for rank in RANKS},
                 "rank_coverage_percentages": current_doaj_coverage_pct,
                 "rejected_journals_current_status": dict(rejected_current_status_counts),
+                "accepted_journals_current_status": dict(accepted_current_status_counts),
                 "withdrawn_journals_current_status": dict(withdrawn_current_status_counts),
             },
             "strict_match_status_counts": dict(sorted(Counter(audit["strict_status"] for audit in audits).items())),
@@ -466,7 +536,7 @@ class DataEngine:
         }
 
         dim_journals = []
-        all_jids = sorted((r_set | w_set | s_set | current_resolved_jids) | unresolved_ids | current_unresolved_jids)
+        all_jids = sorted((r_set | a_set | w_set | s_set | current_resolved_jids) | unresolved_ids | current_unresolved_jids)
         for journal_id in all_jids:
             cur_status = (
                 "requires_review" if journal_id in current_unresolved_jids
@@ -478,6 +548,7 @@ class DataEngine:
                     "journal_id": journal_id,
                     "display_title": journal_titles.get(journal_id),
                     "in_rejected": journal_id in r_set,
+                    "in_accepted": journal_id in a_set,
                     "in_withdrawn": journal_id in w_set,
                     "in_sinta": journal_id in s_set,
                     "in_current_doaj": journal_id in current_resolved_jids,
@@ -490,7 +561,7 @@ class DataEngine:
 
         placeholder_ids = [
             record["source_record_id"]
-            for record in fact_rejected + fact_withdrawn + sinta_records + fact_doaj_current
+            for record in fact_rejected + fact_accepted + fact_withdrawn + sinta_records + fact_doaj_current
             if "placeholder" in {record["p_issn_quality"], record["e_issn_quality"]}
         ]
         cross_medium_ids = [
@@ -513,6 +584,8 @@ class DataEngine:
                 "same_day_rejected_records": len(repeated_timestamp_ids),
                 "strict_ambiguous_records": sum(audit["strict_status"] == "ambiguous" for audit in audits),
                 "extended_ambiguous_records": sum(audit["extended_status"] == "ambiguous" for audit in audits),
+                "authoritative_rejected_records": len(rows["rejected"]),
+                "accepted_source_records": len(rows["accepted"]),
                 "current_doaj_total_source_records": len(rows["doaj_current"]),
                 "current_doaj_indonesia_records": len(doaj_current_id_rows),
                 "current_doaj_non_indonesia_filtered": len(rows["doaj_current"]) - len(doaj_current_id_rows),
@@ -528,12 +601,14 @@ class DataEngine:
                 "Record identity is not evidence of a distinct application or decision.",
                 "Cross-medium matches are excluded from strict headline metrics.",
                 "Placeholder-only ISSNs never establish journal identity.",
+                "Accepted export decision dates are unverified; Added on Date represents database creation, not acceptance decision.",
                 "SINTA ranks describe the 2026-11-15 snapshot, not historical rank.",
                 "Current DOAJ snapshot describes indexing status on 2026-11-15.",
             ],
         }
         return {
             "fact_rejected_public.json": fact_rejected,
+            "fact_accepted_public.json": fact_accepted,
             "fact_withdrawn_public.json": fact_withdrawn,
             "fact_doaj_current_public.json": fact_doaj_current,
             "sinta_snapshot_public.json": sinta_records,
@@ -568,7 +643,7 @@ def write_exports(payloads: dict[str, Any], output_dir: Path, etl_commit: str) -
         "schema_version": SCHEMA_VERSION,
         "etl_commit": etl_commit,
         "source_dates": {
-            "doaj_export_utc": "2026-11-14",
+            "doaj_export_utc": "2026-11-15",
             "sinta_snapshot": "2026-11-15",
             "doaj_current_snapshot": "2026-11-15",
         },

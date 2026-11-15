@@ -369,6 +369,64 @@ export const RejectionHistoryPage: React.FC<RejectionHistoryPageProps> = ({
         </div>
       </div>
 
+      {/* Lifecycle Outcome Split for Rejected Journals */}
+      {summary?.lifecycle_summary && (
+        <div
+          className="card"
+          style={{
+            backgroundColor: 'var(--white)',
+            borderLeft: '4px solid var(--dark-navy)',
+            padding: 'var(--space-4)',
+          }}
+        >
+          <div style={{ fontWeight: 700, fontSize: 'var(--text-sm)', color: 'var(--warm-black)', marginBottom: 'var(--space-2)' }}>
+            Rejection Recurrence & DOAJ Indexing Outcomes (Lifecycle Resolution)
+          </div>
+          <p style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)', margin: '0 0 var(--space-3) 0' }}>
+            Out of {summary.lifecycle_summary.rejected_journals_total.toLocaleString()} total journals with historical rejections,{' '}
+            <strong>{summary.lifecycle_summary.rejected_and_currently_indexed.toLocaleString()}</strong> ({((summary.lifecycle_summary.rejected_and_currently_indexed / summary.lifecycle_summary.rejected_journals_total) * 100).toFixed(1)}%)
+            are currently indexed in DOAJ, and <strong>{summary.lifecycle_summary.rejected_and_accepted_journals.toLocaleString()}</strong> have recorded accepted applications.
+          </p>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+              gap: 'var(--space-3)',
+            }}
+          >
+            {Object.entries(summary.lifecycle_summary.rejection_frequency_outcomes).map(([freq, data]) => (
+              <div
+                key={freq}
+                style={{
+                  padding: 'var(--space-3)',
+                  backgroundColor: 'var(--light-grey)',
+                  borderRadius: 'var(--radius-sm)',
+                  border: '1px solid var(--neutral-border)',
+                }}
+              >
+                <div style={{ fontWeight: 700, fontSize: 'var(--text-xs)', color: 'var(--warm-black)', textTransform: 'uppercase' }}>
+                  {freq} Rejection{freq === '1' ? '' : 's'} ({data.total_journals.toLocaleString()} journals)
+                </div>
+                <div style={{ marginTop: 'var(--space-2)', fontSize: 'var(--text-xs)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: 'var(--dark-green)', fontWeight: 600 }}>Currently Indexed:</span>
+                    <strong>{data.currently_indexed.toLocaleString()} ({((data.currently_indexed / (data.total_journals || 1)) * 100).toFixed(1)}%)</strong>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: 'var(--dark-navy)' }}>Accepted Record:</span>
+                    <span>{data.accepted_overlap.toLocaleString()}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: 'var(--sanguine)' }}>Withdrawn Overlap:</span>
+                    <span>{data.withdrawn_overlap.toLocaleString()}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Visual Analytics Row 1: Frequency Histogram & Day-Gap Histogram */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))', gap: 'var(--space-4)' }}>
         <BaseEChart
@@ -452,6 +510,7 @@ export const RejectionHistoryPage: React.FC<RejectionHistoryPageProps> = ({
               <tr style={{ borderBottom: '2px solid var(--neutral-border)', backgroundColor: 'var(--white)' }}>
                 <SortableHeader columnKey="journal" label="Journal Identifier & Title" activeKey={sortKey} direction={direction} onSort={requestSort} />
                 <SortableHeader columnKey="rank" label="SINTA Rank" activeKey={sortKey} direction={direction} onSort={requestSort} />
+                <th>DOAJ Lifecycle Status</th>
                 <SortableHeader columnKey="records" label="Total Records" activeKey={sortKey} direction={direction} onSort={requestSort} align="center" />
                 <SortableHeader columnKey="days" label="Distinct Days" activeKey={sortKey} direction={direction} onSort={requestSort} align="center" />
                 <SortableHeader columnKey="years" label="Span Years" activeKey={sortKey} direction={direction} onSort={requestSort} align="center" />
@@ -492,6 +551,50 @@ export const RejectionHistoryPage: React.FC<RejectionHistoryPageProps> = ({
                     </td>
                     <td style={{ padding: 'var(--space-3)' }}>
                       <RankBadge rank={rank} />
+                    </td>
+                    <td style={{ padding: 'var(--space-3)' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                        {dim?.in_current_doaj && (
+                          <span
+                            className="badge"
+                            style={{
+                              backgroundColor: 'var(--dark-green)',
+                              color: 'var(--white)',
+                              fontSize: '10px',
+                              padding: '2px 6px',
+                            }}
+                          >
+                            ✓ Currently Indexed
+                          </span>
+                        )}
+                        {dim?.in_accepted && (
+                          <span
+                            className="badge"
+                            style={{
+                              backgroundColor: 'var(--dark-navy)',
+                              color: 'var(--white)',
+                              fontSize: '10px',
+                              padding: '2px 6px',
+                            }}
+                          >
+                            Accepted Record
+                          </span>
+                        )}
+                        {dim?.in_withdrawn && (
+                          <span
+                            className="badge badge-withdrawn"
+                            style={{
+                              fontSize: '10px',
+                              padding: '2px 6px',
+                            }}
+                          >
+                            Withdrawn Record
+                          </span>
+                        )}
+                        {!dim?.in_current_doaj && !dim?.in_accepted && !dim?.in_withdrawn && (
+                          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)' }}>Rejection only</span>
+                        )}
+                      </div>
                     </td>
                     <td style={{ padding: 'var(--space-3)', textAlign: 'center' }}>
                       <span
