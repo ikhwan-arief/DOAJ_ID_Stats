@@ -19,9 +19,9 @@ test('WP4 Production Integration: Real Validated Outputs & Quality Gates', async
     assert.equal(summary.source_record_counts.withdrawn, 661, 'Withdrawn source rows must be 661');
     assert.equal(summary.source_record_counts.sinta, 16620, 'SINTA source rows must be 16,620');
     assert.equal(summary.source_record_counts.doaj_current_indonesia, 2733, 'Current DOAJ Indonesia records must be 2,733');
-    assert.equal(summary.intersection_universe_count, 18423, 'Intersection universe must be 18,423');
-    assert.equal(summary.repeat_record_journals, 2026, 'Repeat record journals must be 2,026');
-    assert.equal(summary.repeat_date_journals, 2004, 'Repeat date journals must be 2,004');
+    assert.equal(summary.intersection_universe_count, 18391, 'Intersection universe must be 18,391');
+    assert.equal(summary.repeat_record_journals, 2025, 'Repeat record journals must be 2,025');
+    assert.equal(summary.repeat_date_journals, 2003, 'Repeat date journals must be 2,003');
     assert.equal(summary.repeat_year_journals, 1647, 'Repeat year journals must be 1,647');
   });
 
@@ -36,11 +36,11 @@ test('WP4 Production Integration: Real Validated Outputs & Quality Gates', async
     const cur = summary.current_doaj_summary;
     assert.ok(cur, 'current_doaj_summary must be present in summary');
     assert.equal(cur.indonesia_source_records, 2733);
-    assert.equal(cur.unique_resolved_journals, 2731);
-    assert.equal(cur.sinta_matched_journals, 2500);
-    assert.equal(cur.doaj_only_journals, 231);
-    assert.equal(cur.sinta_only_journals, 14120);
-    assert.equal(cur.total_two_set_universe, 16851);
+    assert.equal(cur.unique_resolved_journals, 2725);
+    assert.equal(cur.sinta_matched_journals, 2516);
+    assert.equal(cur.doaj_only_journals, 209);
+    assert.equal(cur.sinta_only_journals, 14104);
+    assert.equal(cur.total_two_set_universe, 16829);
   });
 
   await t.test('All seven Venn regions add up to exact universe count', () => {
@@ -48,7 +48,7 @@ test('WP4 Production Integration: Real Validated Outputs & Quality Gates', async
     const summary = JSON.parse(fs.readFileSync(summaryPath, 'utf8'));
 
     const sumCount = summary.venn_regions.reduce((acc, r) => acc + r.count, 0);
-    assert.equal(sumCount, 18423, 'Sum of all 7 Venn partitions must equal exactly 18,423');
+    assert.equal(sumCount, 18391, 'Sum of all 7 Venn partitions must equal exactly 18,391');
   });
 
   await t.test('No /admin/application/ route in built dist or src code', () => {

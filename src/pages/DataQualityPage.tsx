@@ -13,6 +13,97 @@ export const DataQualityPage: React.FC = () => {
   const [withdrawn, setWithdrawn] = useState<FactWithdrawnRecord[]>([]);
   const [error, setError] = useState<string | null>(null);
 
+  // SINTA Matching Audit State
+  const [auditSearch, setAuditSearch] = useState('');
+  const [auditCategoryFilter, setAuditCategoryFilter] = useState('all');
+  const [auditCurrentPage, setAuditCurrentPage] = useState(1);
+  const auditPageSize = 25;
+
+  const rawAuditEntries = useMemo(() => quality?.sinta_matching_audit?.entries || [], [quality]);
+
+  const filteredAuditEntries = useMemo(() => {
+    return rawAuditEntries.filter((e) => {
+      if (auditCategoryFilter !== 'all' && e.issue_category !== auditCategoryFilter) {
+        return false;
+      }
+      if (auditSearch.trim()) {
+        const q = auditSearch.toLowerCase();
+        const matchTitle = e.journal_title.toLowerCase().includes(q);
+        const matchIssn = (e.doaj_p_issn && e.doaj_p_issn.toLowerCase().includes(q)) ||
+                          (e.doaj_e_issn && e.doaj_e_issn.toLowerCase().includes(q)) ||
+                          (e.sinta_p_issn && e.sinta_p_issn.toLowerCase().includes(q)) ||
+                          (e.sinta_e_issn && e.sinta_e_issn.toLowerCase().includes(q));
+        const matchCandidate = e.sinta_candidates && e.sinta_candidates.toLowerCase().includes(q);
+        if (!matchTitle && !matchIssn && !matchCandidate) return false;
+      }
+      return true;
+    });
+  }, [rawAuditEntries, auditCategoryFilter, auditSearch]);
+
+  const auditAccessors = useMemo(() => ({
+    row_number: (e: typeof rawAuditEntries[number]) => e.row_number,
+    journal_title: (e: typeof rawAuditEntries[number]) => e.journal_title,
+    dataset: (e: typeof rawAuditEntries[number]) => e.dataset,
+    issue_category: (e: typeof rawAuditEntries[number]) => e.issue_category,
+    sinta_candidates: (e: typeof rawAuditEntries[number]) => e.sinta_candidates,
+    verification_status: (e: typeof rawAuditEntries[number]) => e.verification_status,
+  }), [rawAuditEntries]);
+
+  const {
+    sortedItems: sortedAuditEntries,
+    sortKey: auditSortKey,
+    direction: auditDirection,
+    requestSort: requestAuditSort,
+  } = useSortableData(filteredAuditEntries, auditAccessors, 'row_number', 'asc');
+
+  const auditTotalPages = Math.ceil(sortedAuditEntries.length / auditPageSize) || 1;
+  const paginatedAuditEntries = useMemo(() => {
+    const start = (auditCurrentPage - 1) * auditPageSize;
+    return sortedAuditEntries.slice(start, start + auditPageSize);
+  }, [sortedAuditEntries, auditCurrentPage, auditPageSize]);
+
+  const handleExportAuditCSV = () => {
+    const headers = [
+      'Row Number',
+      'Dataset',
+      'Journal Title',
+      'DOAJ P-ISSN',
+      'DOAJ E-ISSN',
+      'Issue Category',
+      'SINTA Candidates',
+      'SINTA P-ISSN',
+      'SINTA E-ISSN',
+      'SINTA URLs',
+      'Verification Status',
+      'Journal Website',
+      'Recommended Action',
+    ];
+    const rows = filteredAuditEntries.map((e) => [
+      `"${e.row_number}"`,
+      `"${e.dataset}"`,
+      `"${e.journal_title.replace(/"/g, '""')}"`,
+      `"${e.doaj_p_issn || ''}"`,
+      `"${e.doaj_e_issn || ''}"`,
+      `"${e.issue_category}"`,
+      `"${(e.sinta_candidates || '').replace(/"/g, '""')}"`,
+      `"${e.sinta_p_issn || ''}"`,
+      `"${e.sinta_e_issn || ''}"`,
+      `"${e.sinta_urls || ''}"`,
+      `"${e.verification_status}"`,
+      `"${e.journal_website || ''}"`,
+      `"${(e.recommended_action || '').replace(/"/g, '""')}"`,
+    ]);
+    const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `sinta_matching_audit_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   useEffect(() => {
     Promise.all([
       loadDataQuality(),
@@ -536,6 +627,213 @@ export const DataQualityPage: React.FC = () => {
             • <strong>SINTA Population Denominators:</strong> All prevalence and matrix indicators are calculated with strict SINTA rank census totals as the denominator, avoiding distortion from DOAJ record volumes.
           </p>
         </div>
+      </section>
+
+      {/* SINTA Identity Matching Audit & Reconciliation Section */}
+      <section className="card" style={{ marginTop: 'var(--space-4)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 'var(--space-3)' }}>
+          <div>
+            <h3 style={{ fontSize: 'var(--text-lg)', marginBottom: 'var(--space-1)' }}>
+              SINTA Identity Matching Audit & Reconciliation
+            </h3>
+            <p style={{ fontSize: 'var(--text-sm)', color: 'var(--dark-grey)', margin: 0 }}>
+              Audit manifest of 422 diagnostic records: cross-medium candidates (223), title exact candidates (98),
+              P-ISSN fallback candidates (72), ambiguous titles (15), ambiguous cross-ISSNs (1), and same-medium ISSN conflicts (13).
+              Conservative deterministic matching prevents false positives by flagging unresolved candidates for human review.
+            </p>
+          </div>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={handleExportAuditCSV}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            Export Audit CSV ({filteredAuditEntries.length})
+          </button>
+        </div>
+
+        {/* Audit Filter and Search Controls */}
+        <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-3)', flexWrap: 'wrap', alignItems: 'center' }}>
+          <div style={{ flex: '1 1 250px' }}>
+            <input
+              type="text"
+              placeholder="Search by title, ISSN, or SINTA candidate..."
+              value={auditSearch}
+              onChange={(e) => {
+                setAuditSearch(e.target.value);
+                setAuditCurrentPage(1);
+              }}
+              style={{
+                width: '100%',
+                padding: 'var(--space-2) var(--space-3)',
+                fontSize: 'var(--text-sm)',
+                borderRadius: '4px',
+                border: '1px solid var(--neutral-border)',
+              }}
+            />
+          </div>
+          <div style={{ minWidth: '220px' }}>
+            <select
+              value={auditCategoryFilter}
+              onChange={(e) => {
+                setAuditCategoryFilter(e.target.value);
+                setAuditCurrentPage(1);
+              }}
+              style={{
+                width: '100%',
+                padding: 'var(--space-2) var(--space-3)',
+                fontSize: 'var(--text-sm)',
+                borderRadius: '4px',
+                border: '1px solid var(--neutral-border)',
+              }}
+            >
+              <option value="all">All Issue Categories ({rawAuditEntries.length})</option>
+              <option value="cross_medium_only">Cross-Medium Candidates</option>
+              <option value="title_exact_only">Exact Title Candidates</option>
+              <option value="p_fallback">P-ISSN Fallback Candidates</option>
+              <option value="identity_conflict">Identity Conflicts (Conflicting ISSNs)</option>
+              <option value="title_ambiguous">Ambiguous Title Candidates</option>
+              <option value="cross_ambiguous">Ambiguous Cross-Medium Candidates</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Audit Table */}
+        <div style={{ overflowX: 'auto', marginTop: 'var(--space-3)' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--text-sm)', textAlign: 'left' }}>
+            <thead>
+              <tr style={{ borderBottom: '2px solid var(--neutral-border)', backgroundColor: 'var(--light-grey)' }}>
+                <SortableHeader columnKey="row_number" label="Row #" activeKey={auditSortKey} direction={auditDirection} onSort={requestAuditSort} />
+                <SortableHeader columnKey="journal_title" label="Journal Title" activeKey={auditSortKey} direction={auditDirection} onSort={requestAuditSort} />
+                <th style={{ padding: 'var(--space-2) var(--space-3)' }}>Available ISSNs</th>
+                <SortableHeader columnKey="sinta_candidates" label="SINTA Candidate" activeKey={auditSortKey} direction={auditDirection} onSort={requestAuditSort} />
+                <SortableHeader columnKey="issue_category" label="Category" activeKey={auditSortKey} direction={auditDirection} onSort={requestAuditSort} />
+                <SortableHeader columnKey="verification_status" label="Status" activeKey={auditSortKey} direction={auditDirection} onSort={requestAuditSort} />
+                <th style={{ padding: 'var(--space-2) var(--space-3)' }}>Evidence Links</th>
+              </tr>
+            </thead>
+            <tbody>
+              {paginatedAuditEntries.length === 0 ? (
+                <tr>
+                  <td colSpan={7} style={{ padding: 'var(--space-4)', textAlign: 'center', color: 'var(--dark-grey)' }}>
+                    No audit records match the current search or category filter.
+                  </td>
+                </tr>
+              ) : (
+                paginatedAuditEntries.map((entry) => (
+                  <tr key={`${entry.dataset}-${entry.row_number}-${entry.issue_category}`} style={{ borderBottom: '1px solid var(--light-grey)' }}>
+                    <td style={{ padding: 'var(--space-2) var(--space-3)', fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)' }}>
+                      #{entry.row_number}
+                    </td>
+                    <td style={{ padding: 'var(--space-2) var(--space-3)', fontWeight: 600 }}>
+                      {entry.journal_title}
+                    </td>
+                    <td style={{ padding: 'var(--space-2) var(--space-3)', fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)' }}>
+                      {entry.doaj_p_issn && <div>P: {entry.doaj_p_issn}</div>}
+                      {entry.doaj_e_issn && <div>E: {entry.doaj_e_issn}</div>}
+                      {!entry.doaj_p_issn && !entry.doaj_e_issn && <span style={{ color: 'var(--dark-grey)' }}>None</span>}
+                    </td>
+                    <td style={{ padding: 'var(--space-2) var(--space-3)', fontSize: 'var(--text-xs)' }}>
+                      <div style={{ fontWeight: 500 }}>{entry.sinta_candidates || '—'}</div>
+                      {(entry.sinta_p_issn || entry.sinta_e_issn) && (
+                        <div style={{ fontFamily: 'var(--font-mono)', color: 'var(--dark-grey)', marginTop: '2px' }}>
+                          {entry.sinta_p_issn ? `P: ${entry.sinta_p_issn} ` : ''}
+                          {entry.sinta_e_issn ? `E: ${entry.sinta_e_issn}` : ''}
+                        </div>
+                      )}
+                    </td>
+                    <td style={{ padding: 'var(--space-2) var(--space-3)' }}>
+                      <span
+                        style={{
+                          display: 'inline-block',
+                          padding: '2px 6px',
+                          borderRadius: '3px',
+                          fontSize: '11px',
+                          fontWeight: 600,
+                          backgroundColor:
+                            entry.issue_category === 'identity_conflict' ? '#FFEBEE' :
+                            entry.issue_category.includes('ambiguous') ? '#FFF8E1' :
+                            '#E8F5E9',
+                          color:
+                            entry.issue_category === 'identity_conflict' ? '#C62828' :
+                            entry.issue_category.includes('ambiguous') ? '#F57F17' :
+                            '#2E7D32',
+                        }}
+                      >
+                        {entry.issue_category.replace(/_/g, ' ')}
+                      </span>
+                    </td>
+                    <td style={{ padding: 'var(--space-2) var(--space-3)', fontSize: 'var(--text-xs)', color: 'var(--dark-grey)' }}>
+                      {entry.verification_status.replace(/_/g, ' ')}
+                    </td>
+                    <td style={{ padding: 'var(--space-2) var(--space-3)', fontSize: 'var(--text-xs)' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        {entry.sinta_urls && (
+                          <a
+                            href={entry.sinta_urls}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{ color: 'var(--doaj-primary)', textDecoration: 'underline' }}
+                          >
+                            SINTA Profile ↗
+                          </a>
+                        )}
+                        {entry.journal_website && (
+                          <a
+                            href={entry.journal_website}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{ color: 'var(--dark-grey)', textDecoration: 'underline' }}
+                          >
+                            Journal Site ↗
+                          </a>
+                        )}
+                        {!entry.sinta_urls && !entry.journal_website && <span>—</span>}
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Audit Pagination */}
+        {auditTotalPages > 1 && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'var(--space-3)', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
+            <span style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)' }}>
+              Showing {((auditCurrentPage - 1) * auditPageSize) + 1} to {Math.min(auditCurrentPage * auditPageSize, filteredAuditEntries.length)} of {filteredAuditEntries.length} records
+            </span>
+            <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                disabled={auditCurrentPage === 1}
+                onClick={() => setAuditCurrentPage((p) => Math.max(1, p - 1))}
+                style={{ padding: '4px 10px', fontSize: 'var(--text-xs)' }}
+              >
+                Previous
+              </button>
+              <span style={{ padding: '4px 8px', fontSize: 'var(--text-xs)', fontWeight: 600 }}>
+                {auditCurrentPage} / {auditTotalPages}
+              </span>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                disabled={auditCurrentPage === auditTotalPages}
+                onClick={() => setAuditCurrentPage((p) => Math.min(auditTotalPages, p + 1))}
+                style={{ padding: '4px 10px', fontSize: 'var(--text-xs)' }}
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
       </section>
 
       {/* Dataset Verification Manifest Table (Hidden per request) */}

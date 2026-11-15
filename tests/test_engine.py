@@ -80,13 +80,13 @@ class EngineIntegrationTests(unittest.TestCase):
         cur = summary["current_doaj_summary"]
         self.assertEqual(cur["total_source_records"], 23_733)
         self.assertEqual(cur["indonesia_source_records"], 2_733)
-        self.assertEqual(cur["unique_resolved_journals"], 2_731)
-        self.assertEqual(cur["sinta_matched_journals"], 2_500)
-        self.assertEqual(cur["doaj_only_journals"], 231)
-        self.assertEqual(cur["sinta_only_journals"], 14_120)
-        self.assertEqual(cur["total_two_set_universe"], 16_851)
-        self.assertEqual(sum(cur["rank_coverage_counts"].values()), 2_500)
-        self.assertAlmostEqual(cur["rank_coverage_percentages"]["S1"], 62.60, places=1)
+        self.assertEqual(cur["unique_resolved_journals"], 2_725)
+        self.assertEqual(cur["sinta_matched_journals"], 2_516)
+        self.assertEqual(cur["doaj_only_journals"], 209)
+        self.assertEqual(cur["sinta_only_journals"], 14_104)
+        self.assertEqual(cur["total_two_set_universe"], 16_829)
+        self.assertEqual(sum(cur["rank_coverage_counts"].values()), 2_516)
+        self.assertAlmostEqual(cur["rank_coverage_percentages"]["S1"], 63.36, places=1)
 
     def test_repeat_histogram_and_history_reconcile(self) -> None:
         histories = [
@@ -115,7 +115,7 @@ class EngineIntegrationTests(unittest.TestCase):
         accepted_count = len(self.outputs.get("fact_accepted_public.json", []))
         self.assertEqual(len(audits), 9_308 + 661 + accepted_count)
         self.assertEqual(len(audits), len({record["source_record_id"] for record in audits}))
-        self.assertTrue(all(record["strict_method"] in {"e_to_e", "p_to_p_fallback", "no_usable_issn"} for record in audits))
+        self.assertTrue(all(record["strict_method"] in {"e_to_e", "e_to_e+p_to_p", "p_to_p_fallback", "conflicting_issn", "ambiguous_issn", "no_usable_issn", "unmatched_issn"} for record in audits))
 
     def test_data_quality_samples_contain_only_safe_record_ids(self) -> None:
         report = self.outputs["data_quality_public.json"]
@@ -129,7 +129,7 @@ class EngineIntegrationTests(unittest.TestCase):
         lifecycle = summary["lifecycle_summary"]
         
         # Package A: Verified chronological transitions
-        self.assertEqual(lifecycle["verified_r_to_a_journals"], 563)
+        self.assertEqual(lifecycle["verified_r_to_a_journals"], 562)
         self.assertEqual(lifecycle["verified_a_to_w_journals"], 123)
         self.assertEqual(lifecycle["verified_w_to_a_journals"], 29)
         self.assertEqual(lifecycle["verified_a_w_a_journals"], 7)
@@ -138,7 +138,7 @@ class EngineIntegrationTests(unittest.TestCase):
 
         # Package B: Duration stats
         stats = lifecycle["time_to_acceptance_stats"]
-        self.assertEqual(stats["rejection_to_acceptance_journal"]["count"], 563)
+        self.assertEqual(stats["rejection_to_acceptance_journal"]["count"], 562)
         self.assertEqual(stats["rejection_to_acceptance_journal"]["median"], 263.0)
         self.assertEqual(stats["withdrawal_to_acceptance_journal"]["count"], 29)
         self.assertEqual(stats["withdrawal_to_acceptance_journal"]["median"], 541.0)
@@ -146,7 +146,7 @@ class EngineIntegrationTests(unittest.TestCase):
         # Package C: SINTA Lifecycle Matrix
         matrix = lifecycle["sinta_lifecycle_matrix"]
         self.assertEqual(matrix["Overall"]["total_sinta_journals"], 16620)
-        self.assertEqual(matrix["Overall"]["currently_indexed"]["count"], 2500)
+        self.assertEqual(matrix["Overall"]["currently_indexed"]["count"], 2516)
         self.assertEqual(matrix["Overall"]["verified_r_to_a"]["count"], 523)
         self.assertEqual(matrix["Overall"]["verified_w_to_a"]["count"], 27)
         self.assertEqual(matrix["Overall"]["verified_a_w_a"]["count"], 7)

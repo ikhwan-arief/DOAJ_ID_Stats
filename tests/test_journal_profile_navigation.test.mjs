@@ -32,9 +32,11 @@ test('1 & 2: Supported matching-code labels and unknown code fallback', () => {
   assert.equal(formatMatchingMethod('unknown_custom_code'), 'unknown custom code');
   assert.equal(formatMatchingMethod(null), 'No match evaluated');
 
-  assert.equal(formatMatchStatus('matched'), 'Journal identity matched');
-  assert.equal(formatMatchStatus('unmatched'), 'No matching journal found');
-  assert.equal(formatMatchStatus('ambiguous'), 'Multiple possible matches');
+  assert.equal(formatMatchStatus('matched'), 'Matched to SINTA');
+  assert.equal(formatMatchStatus('unmatched'), 'No ISSN Match in SINTA');
+  assert.equal(formatMatchStatus('ambiguous'), 'Identity Requires Review (Multiple Candidates)');
+  assert.equal(formatMatchStatus('identity_conflict'), 'Identity Requires Review (Conflicting Identifiers)');
+  assert.equal(formatMatchStatus('no_usable_issn'), 'Insufficient ISSN Data');
   assert.equal(formatMatchStatus(null), 'Not Evaluated');
 
   assert.equal(formatMatchingMode('strict'), 'Standard ISSN matching');

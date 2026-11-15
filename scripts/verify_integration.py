@@ -124,11 +124,11 @@ def verify_kpis(payloads: dict[str, object]) -> None:
     cur = summary["current_doaj_summary"]
     require(cur["total_source_records"] == 23733, "doaj_current total source records mismatch")
     require(cur["indonesia_source_records"] == 2733, "doaj_current indonesia records mismatch")
-    require(cur["unique_resolved_journals"] == 2731, "doaj_current unique resolved journals mismatch")
-    require(cur["sinta_matched_journals"] == 2500, "doaj_current sinta matched mismatch")
-    require(cur["doaj_only_journals"] == 231, "doaj_current doaj only mismatch")
-    require(cur["sinta_only_journals"] == 14120, "doaj_current sinta only mismatch")
-    require(cur["total_two_set_universe"] == 16851, "doaj_current 2-set universe mismatch")
+    require(cur["unique_resolved_journals"] == 2725, "doaj_current unique resolved journals mismatch")
+    require(cur["sinta_matched_journals"] == 2516, "doaj_current sinta matched mismatch")
+    require(cur["doaj_only_journals"] == 209, "doaj_current doaj only mismatch")
+    require(cur["sinta_only_journals"] == 14104, "doaj_current sinta only mismatch")
+    require(cur["total_two_set_universe"] == 16829, "doaj_current 2-set universe mismatch")
 
 
 def verify_filter_partitions(payloads: dict[str, object]) -> None:

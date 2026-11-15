@@ -20,12 +20,24 @@ export function formatMatchingMethod(method: string | null | undefined): string 
     case 'p_to_p':
     case 'p_to_p_fallback':
       return 'Matched by Print ISSN';
+    case 'e_to_e+p_to_p':
+      return 'Matched by Both Online and Print ISSNs';
     case 'e_to_p':
       return 'Matched using Online to Print ISSN';
     case 'p_to_e':
       return 'Matched using Print to Online ISSN';
     case 'e_to_p+p_to_e':
       return 'Matched using Cross-Medium ISSNs';
+    case 'conflicting_issn':
+      return 'Conflicting Online and Print ISSN Identities';
+    case 'conflicting_cross_issn':
+      return 'Conflicting Cross-Medium ISSN Identities';
+    case 'ambiguous_issn':
+      return 'Multiple SINTA Candidates for Identifier';
+    case 'ambiguous_cross_issn':
+      return 'Multiple Cross-Medium SINTA Candidates';
+    case 'unmatched_issn':
+      return 'No ISSN Match in SINTA';
     case 'no_usable_issn':
       return 'No usable or valid ISSN in source';
     default:
@@ -35,18 +47,22 @@ export function formatMatchingMethod(method: string | null | undefined): string 
 }
 
 /**
- * Maps technical match status codes to plain-language status descriptions.
+ * Maps technical match status codes to plain-language, accurate status descriptions.
  */
 export function formatMatchStatus(status: string | null | undefined): string {
   if (!status) return 'Not Evaluated';
 
   switch (status.toLowerCase()) {
     case 'matched':
-      return 'Journal identity matched';
+      return 'Matched to SINTA';
     case 'unmatched':
-      return 'No matching journal found';
+      return 'No ISSN Match in SINTA';
     case 'ambiguous':
-      return 'Multiple possible matches';
+      return 'Identity Requires Review (Multiple Candidates)';
+    case 'identity_conflict':
+      return 'Identity Requires Review (Conflicting Identifiers)';
+    case 'no_usable_issn':
+      return 'Insufficient ISSN Data';
     default:
       return status;
   }
@@ -69,7 +85,13 @@ export function getMatchingExplanation(status: string | null | undefined, method
   if (status === 'ambiguous') {
     return 'Multiple candidate journals share these identifier attributes; manual editorial review required.';
   }
-  return 'Not cross-referenced in the national SINTA census. Note: This reflects national accreditation cross-matching, not DOAJ indexing status or journal legitimacy.';
+  if (status === 'identity_conflict') {
+    return 'Print and Online ISSNs correspond to distinct SINTA journal profiles; flagged as identity conflict requiring review.';
+  }
+  if (method === 'no_usable_issn') {
+    return 'Source record lacks a usable 8-character hyphenated ISSN or contains only placeholder tokens.';
+  }
+  return 'No matching journal found in the national SINTA census for the provided ISSNs. Note: A failed ISSN match does not prove that the journal is absent from SINTA; it reflects independent identifier cross-matching, not DOAJ indexing status or journal legitimacy.';
 }
 
 /**

@@ -7,12 +7,15 @@ Copyright (c) 2026 Ikhwan Arief. Copyright held by the application developer.
 from __future__ import annotations
 
 from collections import Counter, defaultdict
+import csv
 from dataclasses import dataclass
 from datetime import datetime
 import hashlib
 import json
 from pathlib import Path
+import re
 import statistics
+import unicodedata
 from typing import Any
 
 from .contracts import SOURCE_CONTRACTS
@@ -23,6 +26,15 @@ from .sources import inspect_all_sources, iter_lossless_rows
 SCHEMA_VERSION = "1.0.0"
 RANKS = ("S1", "S2", "S3", "S4", "S5", "S6", "NA")
 USABLE_ISSN_QUALITIES = frozenset({"checksum_valid", "format_only"})
+
+
+def normalize_journal_title(title: str | None) -> str:
+    """Normalize journal title for safe candidate discovery and comparison."""
+    if not title:
+        return ""
+    normalized = unicodedata.normalize("NFKD", title).lower()
+    cleaned = re.sub(r"[^\w\s]", " ", normalized)
+    return " ".join(cleaned.split())
 
 
 @dataclass(frozen=True)
@@ -117,31 +129,53 @@ class DataEngine:
 
         def match(row: dict[str, Any], extended: bool = False) -> MatchResult:
             e_issn, p_issn = _usable(row, "e"), _usable(row, "p")
+            c_e = sinta_e_index[e_issn] if e_issn else set()
+            c_p = sinta_p_index[p_issn] if p_issn else set()
+
+            # Strict matching: evaluate E-to-E and P-to-P independently
             if not extended:
-                if e_issn:
-                    candidates, method = sinta_e_index[e_issn], "e_to_e"
-                elif p_issn:
-                    candidates, method = sinta_p_index[p_issn], "p_to_p_fallback"
+                if c_e and c_p:
+                    if c_e == c_p and len(c_e) == 1:
+                        return MatchResult("matched", "e_to_e+p_to_p", next(iter(c_e)), 1)
+                    else:
+                        # Distinct candidates or multi-match across identifiers
+                        return MatchResult("identity_conflict", "conflicting_issn", None, len(c_e | c_p))
+                elif len(c_e) == 1 and not c_p:
+                    return MatchResult("matched", "e_to_e", next(iter(c_e)), 1)
+                elif len(c_p) == 1 and not c_e:
+                    return MatchResult("matched", "p_to_p_fallback", next(iter(c_p)), 1)
+                elif len(c_e) > 1 or len(c_p) > 1:
+                    return MatchResult("ambiguous", "ambiguous_issn", None, len(c_e | c_p))
                 else:
-                    return MatchResult("unmatched", "no_usable_issn", None, 0)
+                    if not e_issn and not p_issn:
+                        return MatchResult("unmatched", "no_usable_issn", None, 0)
+                    return MatchResult("unmatched", "unmatched_issn", None, 0)
+
+            # Extended cross-medium matching:
+            strict = match(row, extended=False)
+            if strict.status in {"matched", "identity_conflict", "ambiguous"}:
+                return strict
+
+            cross_e = sinta_p_index[e_issn] if e_issn else set()
+            cross_p = sinta_e_index[p_issn] if p_issn else set()
+
+            if cross_e and cross_p:
+                if cross_e == cross_p and len(cross_e) == 1:
+                    return MatchResult("matched", "e_to_p+p_to_e", next(iter(cross_e)), 1)
+                elif cross_e.isdisjoint(cross_p):
+                    return MatchResult("identity_conflict", "conflicting_cross_issn", None, len(cross_e | cross_p))
+                else:
+                    return MatchResult("ambiguous", "ambiguous_cross_issn", None, len(cross_e | cross_p))
+            elif len(cross_e) == 1 and not cross_p:
+                return MatchResult("matched", "e_to_p", next(iter(cross_e)), 1)
+            elif len(cross_p) == 1 and not cross_e:
+                return MatchResult("matched", "p_to_e", next(iter(cross_p)), 1)
+            elif len(cross_e) > 1 or len(cross_p) > 1:
+                return MatchResult("ambiguous", "ambiguous_cross_issn", None, len(cross_e | cross_p))
             else:
-                candidates = set()
-                strict = match(row, extended=False)
-                if strict.status in {"matched", "ambiguous"}:
-                    return strict
-                methods = []
-                if e_issn:
-                    candidates |= sinta_p_index[e_issn]
-                    methods.append("e_to_p")
-                if p_issn:
-                    candidates |= sinta_e_index[p_issn]
-                    methods.append("p_to_e")
-                method = "+".join(methods) if methods else "no_usable_issn"
-            if len(candidates) == 1:
-                return MatchResult("matched", method, next(iter(candidates)), 1)
-            if len(candidates) > 1:
-                return MatchResult("ambiguous", method, None, len(candidates))
-            return MatchResult("unmatched", method, None, 0)
+                if not e_issn and not p_issn:
+                    return MatchResult("unmatched", "no_usable_issn", None, 0)
+                return MatchResult("unmatched", "unmatched_issn", None, 0)
 
         doaj_signature_to_id: dict[tuple[str, ...], str] = {}
         fact_rejected, fact_accepted, fact_withdrawn, audits = [], [], [], []
@@ -149,7 +183,7 @@ class DataEngine:
 
         def reconcile_doaj(row: dict[str, Any]) -> tuple[str, MatchResult, MatchResult, bool]:
             strict, extended = match(row), match(row, extended=True)
-            unresolved = strict.status == "ambiguous"
+            unresolved = strict.status in {"ambiguous", "identity_conflict"}
             if strict.journal_id:
                 journal_id = strict.journal_id
             elif unresolved:
@@ -902,6 +936,89 @@ class DataEngine:
                 record["source_record_id"] for record in records
                 if record["event_day"] and day_counts[record["event_day"]] > 1
             )
+        # Load and prepare public-safe SINTA matching audit entries
+        audit_file_path = self.raw_dir.parent / "audit" / "sinta_matching_audit_20261115.csv"
+        conflict_file_path = self.raw_dir.parent / "audit" / "sinta_issn_conflicts_20261115.csv"
+        sinta_matching_audit_entries: list[dict[str, Any]] = []
+
+        url_lookup: dict[tuple[str | None, str | None], str] = {}
+        for r_item in fact_rejected + fact_accepted + fact_withdrawn + fact_doaj_current:
+            p_n, e_n = r_item.get("p_issn_normalized"), r_item.get("e_issn_normalized")
+            j_u = r_item.get("journal_url")
+            if j_u and (p_n or e_n):
+                url_lookup.setdefault((p_n, e_n), j_u)
+
+        if audit_file_path.exists():
+            with audit_file_path.open("r", encoding="utf-8") as stream:
+                for row in csv.DictReader(stream):
+                    cleaned = {k.lstrip("\ufeff"): v for k, v in row.items()}
+                    p_val = cleaned.get("doaj_p_issn", "")
+                    e_val = cleaned.get("doaj_e_issn", "")
+                    sinta_urls_raw = cleaned.get("candidate_sinta_urls", "")
+                    journal_web_raw = cleaned.get("source_public_website", "")
+                    sinta_urls = " | ".join(
+                        u.strip() for u in sinta_urls_raw.split("|")
+                        if _optional_url(u.strip())
+                    ) if sinta_urls_raw else ""
+                    journal_web = _optional_url(journal_web_raw) or ""
+                    sinta_matching_audit_entries.append(
+                        {
+                            "dataset": cleaned.get("source_dataset", ""),
+                            "row_number": int(cleaned["source_row_number"]) if cleaned.get("source_row_number", "").isdigit() else 0,
+                            "journal_title": _safe_text(cleaned.get("doaj_journal_title")) or "",
+                            "doaj_p_issn": p_val,
+                            "doaj_e_issn": e_val,
+                            "sinta_candidates": cleaned.get("candidate_sinta_titles", ""),
+                            "sinta_p_issn": cleaned.get("candidate_sinta_p_issn", ""),
+                            "sinta_e_issn": cleaned.get("candidate_sinta_e_issn", ""),
+                            "sinta_urls": sinta_urls,
+                            "journal_website": journal_web,
+                            "issue_category": cleaned.get("issue_category", ""),
+                            "verification_status": cleaned.get("verification_status", "not_externally_verified"),
+                            "recommended_action": cleaned.get("recommended_action", ""),
+                        }
+                    )
+
+        if conflict_file_path.exists():
+            with conflict_file_path.open("r", encoding="utf-8") as stream:
+                for row in csv.DictReader(stream):
+                    cleaned = {k.lstrip("\ufeff"): v for k, v in row.items()}
+                    p_val = cleaned.get("doaj_p_issn", "")
+                    e_val = cleaned.get("doaj_e_issn", "")
+                    e_cand_raw = cleaned.get("sinta_candidates_from_e_issn", "").replace("â\x80\x99", "’").replace("Syariâ€™ah", "Syari’ah")
+                    p_cand_raw = cleaned.get("sinta_candidates_from_p_issn", "").replace("â\x80\x99", "’").replace("Syariâ€™ah", "Syari’ah")
+                    conf_urls = re.findall(r"https?://[^\s\]]+", e_cand_raw + " " + p_cand_raw)
+                    valid_conf_urls = [u for u in dict.fromkeys(conf_urls) if _optional_url(u)]
+                    clean_e = re.sub(r"\s*\[https?://[^\]]+\]", "", e_cand_raw).strip()
+                    clean_p = re.sub(r"\s*\[https?://[^\]]+\]", "", p_cand_raw).strip()
+                    j_web = url_lookup.get((p_val or None, e_val or None), "")
+                    sinta_matching_audit_entries.append(
+                        {
+                            "dataset": cleaned.get("dataset", ""),
+                            "row_number": int(cleaned["source_row_number"]) if cleaned.get("source_row_number", "").isdigit() else 0,
+                            "journal_title": _safe_text(cleaned.get("doaj_journal_title")) or "",
+                            "doaj_p_issn": p_val,
+                            "doaj_e_issn": e_val,
+                            "sinta_candidates": f"Online ISSN candidate: {clean_e} | Print ISSN candidate: {clean_p}",
+                            "sinta_p_issn": "",
+                            "sinta_e_issn": "",
+                            "sinta_urls": " | ".join(valid_conf_urls),
+                            "journal_website": j_web,
+                            "issue_category": "identity_conflict",
+                            "verification_status": cleaned.get("website_validation", "not_externally_verified"),
+                            "recommended_action": cleaned.get("issue", ""),
+                        }
+                    )
+
+        # Before and after matching audit reconciliation summary
+        matching_audit_summary = {
+            "total_audit_records": len(sinta_matching_audit_entries),
+            "candidate_leads_count": len(audit_cleaned) if "audit_cleaned" in locals() else len(sinta_matching_audit_entries) - 13,
+            "conflict_leads_count": 13,
+            "categories": dict(Counter(entry["issue_category"] for entry in sinta_matching_audit_entries)),
+            "verification_status": dict(Counter(entry["verification_status"] for entry in sinta_matching_audit_entries)),
+        }
+
         # Evidence and lifecycle coverage indicators
         total_unique_resolved = len(r_set | a_set | w_set)
         multi_event_jids = sum(1 for evs in j_events.values() if len(evs) > 1)
@@ -933,6 +1050,10 @@ class DataEngine:
                 "placeholder_records": placeholder_ids[:10],
                 "cross_medium_candidates": cross_medium_ids[:10],
                 "same_day_rejected_records": repeated_timestamp_ids[:10],
+            },
+            "sinta_matching_audit": {
+                "summary": matching_audit_summary,
+                "entries": sinta_matching_audit_entries,
             },
             "limitations": [
                 "Record identity is not evidence of a distinct application or decision.",

@@ -410,6 +410,30 @@ export interface DataQualityPublic {
   };
   limitations: string[];
   review_samples_are_source_ids_only: boolean;
+  sinta_matching_audit?: {
+    summary: {
+      total_audit_records: number;
+      candidate_leads_count: number;
+      conflict_leads_count: number;
+      categories: Record<string, number>;
+      verification_status: Record<string, number>;
+    };
+    entries: Array<{
+      row_number: number;
+      dataset: string;
+      journal_title: string;
+      doaj_p_issn: string;
+      doaj_e_issn: string;
+      issue_category: string;
+      sinta_candidates: string;
+      sinta_p_issn: string;
+      sinta_e_issn: string;
+      sinta_urls: string;
+      verification_status: string;
+      journal_website: string;
+      recommended_action: string;
+    }>;
+  };
 }
 
 // Synthetic Types (retained for backward-compatible test fixtures)
