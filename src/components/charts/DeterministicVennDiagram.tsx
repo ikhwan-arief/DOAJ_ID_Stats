@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useRef, useState } from 'react';
+import { exportSvgAsPng } from '../../lib/chartExport';
 
 interface VennRegionData {
   region: string;
@@ -19,6 +20,9 @@ export const DeterministicVennDiagram: React.FC<DeterministicVennDiagramProps> =
   onSelectRegion,
   selectedRegion,
 }) => {
+  const svgRef = useRef<SVGSVGElement>(null);
+  const [isExporting, setIsExporting] = useState<boolean>(false);
+
   const getCount = (rCode: string) => {
     return regions.find((r) => r.region === rCode)?.count || 0;
   };
@@ -37,6 +41,25 @@ export const DeterministicVennDiagram: React.FC<DeterministicVennDiagramProps> =
 
   const totalUniverse = regions.reduce((sum, r) => sum + r.count, 0);
 
+  const handleDownloadPng = async () => {
+    if (!svgRef.current) return;
+    try {
+      setIsExporting(true);
+      await exportSvgAsPng(svgRef.current, {
+        title: 'Three-Set Euler / Venn Partition Topology',
+        metricLabel: 'Resolved Unique Journals',
+        unit: 'journals',
+        denominatorNote: `Universe of ${totalUniverse.toLocaleString()} journals`,
+        scopeNote: 'Deterministic Set Geometry (DOAJ Rejected, Withdrawn, SINTA)',
+        snapshotDate: '15 November 2026',
+      });
+    } catch (err) {
+      console.error('Failed to export Venn PNG:', err);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return (
     <div
       className="card"
@@ -51,7 +74,7 @@ export const DeterministicVennDiagram: React.FC<DeterministicVennDiagramProps> =
       }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
-        <div>
+        <div style={{ flex: 1, minWidth: '240px' }}>
           <h4 style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--text-md)', margin: 0 }}>
             Three-Set Euler / Venn Partition Topology
           </h4>
@@ -59,11 +82,38 @@ export const DeterministicVennDiagram: React.FC<DeterministicVennDiagramProps> =
             Metric: Resolved Unique Journals • Universe: {totalUniverse.toLocaleString()} • Click any region to filter or inspect
           </p>
         </div>
-        <span className="badge badge-neutral">Deterministic Set Geometry</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+          <span className="badge badge-neutral">Deterministic Set Geometry</span>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={handleDownloadPng}
+            disabled={isExporting}
+            style={{
+              padding: '4px 10px',
+              minHeight: '28px',
+              fontSize: 'var(--text-xs)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '5px',
+              fontWeight: 600,
+            }}
+            title="Download Three-Set Venn as PNG"
+            aria-label="Download Three-Set Venn as PNG"
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            <span>{isExporting ? 'Exporting…' : 'Download PNG'}</span>
+          </button>
+        </div>
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: 'var(--space-2) 0' }}>
         <svg
+          ref={svgRef}
           viewBox="0 0 520 380"
           style={{ width: '100%', maxWidth: '520px', height: 'auto', maxHeight: '340px' }}
           role="img"

@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useRef, useState } from 'react';
+import { exportSvgAsPng } from '../../lib/chartExport';
 
 interface CurrentSintaVennDiagramProps {
   doajOnlyCount: number;
@@ -13,8 +14,30 @@ export const CurrentSintaVennDiagram: React.FC<CurrentSintaVennDiagramProps> = (
   bothCount,
   totalUniverse,
 }) => {
+  const svgRef = useRef<SVGSVGElement>(null);
+  const [isExporting, setIsExporting] = useState<boolean>(false);
+
   const doajTotal = doajOnlyCount + bothCount;
   const sintaTotal = sintaOnlyCount + bothCount;
+
+  const handleDownloadPng = async () => {
+    if (!svgRef.current) return;
+    try {
+      setIsExporting(true);
+      await exportSvgAsPng(svgRef.current, {
+        title: 'Current DOAJ × SINTA Indexing Overlap',
+        metricLabel: 'Resolved Unique Journals',
+        unit: 'journals',
+        denominatorNote: `Universe of ${totalUniverse.toLocaleString()} journals`,
+        scopeNote: 'DOAJ (Nov 15, 2026) vs SINTA Census Snapshot',
+        snapshotDate: '15 November 2026',
+      });
+    } catch (err) {
+      console.error('Failed to export Current SINTA Venn PNG:', err);
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   return (
     <div
@@ -30,7 +53,7 @@ export const CurrentSintaVennDiagram: React.FC<CurrentSintaVennDiagramProps> = (
       }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
-        <div>
+        <div style={{ flex: 1, minWidth: '240px' }}>
           <h4 style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--text-md)', margin: 0 }}>
             Current DOAJ × SINTA Indexing Overlap (Two-Set Venn)
           </h4>
@@ -38,11 +61,38 @@ export const CurrentSintaVennDiagram: React.FC<CurrentSintaVennDiagramProps> = (
             Metric: Resolved Unique Journals • Universe: {totalUniverse.toLocaleString()} • DOAJ (Nov 15, 2026) vs SINTA Snapshot
           </p>
         </div>
-        <span className="badge badge-neutral">Current Status Model</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+          <span className="badge badge-neutral">Current Status Model</span>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={handleDownloadPng}
+            disabled={isExporting}
+            style={{
+              padding: '4px 10px',
+              minHeight: '28px',
+              fontSize: 'var(--text-xs)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '5px',
+              fontWeight: 600,
+            }}
+            title="Download Two-Set Venn as PNG"
+            aria-label="Download Two-Set Venn as PNG"
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            <span>{isExporting ? 'Exporting…' : 'Download PNG'}</span>
+          </button>
+        </div>
       </div>
 
       <div style={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '260px' }}>
         <svg
+          ref={svgRef}
           viewBox="0 0 520 280"
           style={{ width: '100%', maxWidth: '500px', height: 'auto', overflow: 'visible' }}
           role="img"
