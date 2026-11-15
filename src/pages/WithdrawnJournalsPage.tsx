@@ -2,6 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { loadFactWithdrawn } from '../data/loader';
 import { FactWithdrawnRecord, GlobalFilterState } from '../types';
 import { RankBadge, Alert, LoadingState } from '../components/common/UIPrimitives';
+import { SortableHeader, useSortableData } from '../components/common/SortableTable';
 
 interface WithdrawnJournalsPageProps {
   filters: GlobalFilterState;
@@ -52,15 +53,28 @@ export const WithdrawnJournalsPage: React.FC<WithdrawnJournalsPageProps> = ({
     });
   }, [withdrawn, filters]);
 
+  const withdrawnSortAccessors = useMemo(() => ({
+    id: (record: FactWithdrawnRecord) => record.source_record_id,
+    title: (record: FactWithdrawnRecord) => record.journal_title,
+    issn: (record: FactWithdrawnRecord) => `${record.p_issn_raw} ${record.e_issn_raw}`,
+    withdrawn: (record: FactWithdrawnRecord) => record.last_withdrawn_day,
+    reinstated: (record: FactWithdrawnRecord) => record.last_reinstated_day,
+    rank: (record: FactWithdrawnRecord) => filters.matchingMode === 'extended' ? record.extended_sinta_rank : record.sinta_rank,
+    profile: (record: FactWithdrawnRecord) => record.doaj_profile_url || '',
+  }), [filters.matchingMode]);
+  const { sortedItems: sortedWithdrawn, sortKey, direction, requestSort } = useSortableData(
+    filteredWithdrawn, withdrawnSortAccessors, 'withdrawn', 'desc',
+  );
+
   useEffect(() => {
     setCurrentPage(1);
   }, [filters]);
 
-  const totalPages = Math.ceil(filteredWithdrawn.length / pageSize) || 1;
+  const totalPages = Math.ceil(sortedWithdrawn.length / pageSize) || 1;
   const pagedRecords = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
-    return filteredWithdrawn.slice(start, start + pageSize);
-  }, [filteredWithdrawn, currentPage]);
+    return sortedWithdrawn.slice(start, start + pageSize);
+  }, [sortedWithdrawn, currentPage]);
 
   const reinstatedCount = useMemo(() => {
     if (!withdrawn) return 0;
@@ -186,13 +200,13 @@ export const WithdrawnJournalsPage: React.FC<WithdrawnJournalsPageProps> = ({
           >
             <thead>
               <tr style={{ borderBottom: '2px solid var(--neutral-border)', backgroundColor: 'var(--white)' }}>
-                <th style={{ padding: 'var(--space-3)' }}>Record ID</th>
-                <th style={{ padding: 'var(--space-3)' }}>Journal Title</th>
-                <th style={{ padding: 'var(--space-3)' }}>P-ISSN / E-ISSN</th>
-                <th style={{ padding: 'var(--space-3)' }}>Withdrawal Date</th>
-                <th style={{ padding: 'var(--space-3)' }}>Reinstatement Date</th>
-                <th style={{ padding: 'var(--space-3)' }}>SINTA Rank</th>
-                <th style={{ padding: 'var(--space-3)' }}>Public Profile</th>
+                <SortableHeader columnKey="id" label="Record ID" activeKey={sortKey} direction={direction} onSort={requestSort} />
+                <SortableHeader columnKey="title" label="Journal Title" activeKey={sortKey} direction={direction} onSort={requestSort} />
+                <SortableHeader columnKey="issn" label="P-ISSN / E-ISSN" activeKey={sortKey} direction={direction} onSort={requestSort} />
+                <SortableHeader columnKey="withdrawn" label="Withdrawal Date" activeKey={sortKey} direction={direction} onSort={requestSort} />
+                <SortableHeader columnKey="reinstated" label="Reinstatement Date" activeKey={sortKey} direction={direction} onSort={requestSort} />
+                <SortableHeader columnKey="rank" label="SINTA Rank" activeKey={sortKey} direction={direction} onSort={requestSort} />
+                <SortableHeader columnKey="profile" label="Public Profile" activeKey={sortKey} direction={direction} onSort={requestSort} />
                 <th style={{ padding: 'var(--space-3)' }}>Actions</th>
               </tr>
             </thead>

@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { MetricCard, Alert, LoadingState } from '../components/common/UIPrimitives';
-import { loadSummary, loadIntersections } from '../data/loader';
-import { SummaryPublic, IntersectionsPublic, GlobalFilterState } from '../types';
+import { loadSummary, loadFactRejected, loadFactWithdrawn, loadDimJournals } from '../data/loader';
+import { SummaryPublic, IntersectionsPublic, GlobalFilterState, FactRejectedRecord, FactWithdrawnRecord, DimJournalRecord } from '../types';
 import { UpsetVennChart } from '../components/charts/UpsetVennChart';
+import { SortableHeader, useSortableData } from '../components/common/SortableTable';
 
 interface OverviewPageProps {
   filters: GlobalFilterState;
@@ -11,29 +12,120 @@ interface OverviewPageProps {
 
 export const OverviewPage: React.FC<OverviewPageProps> = ({ filters, onNavigateToRoute }) => {
   const [summary, setSummary] = useState<SummaryPublic | null>(null);
-  const [intersections, setIntersections] = useState<IntersectionsPublic | null>(null);
+  const [rejected, setRejected] = useState<FactRejectedRecord[]>([]);
+  const [withdrawn, setWithdrawn] = useState<FactWithdrawnRecord[]>([]);
+  const [journals, setJournals] = useState<DimJournalRecord[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.all([loadSummary(), loadIntersections()])
-      .then(([s, inter]) => {
+    Promise.all([loadSummary(), loadFactRejected(), loadFactWithdrawn(), loadDimJournals()])
+      .then(([s, rejectedRows, withdrawnRows, journalRows]) => {
         setSummary(s);
-        setIntersections(inter);
+        setRejected(rejectedRows);
+        setWithdrawn(withdrawnRows);
+        setJournals(journalRows);
       })
       .catch((err) => {
         setError(err.message || 'Failed to load summary dataset');
       });
   }, []);
 
+  const filteredView = useMemo(() => {
+    const query = filters.searchQuery.trim().toLocaleLowerCase();
+    const effectiveRejectedRank = (row: FactRejectedRecord) => filters.matchingMode === 'extended' ? row.extended_sinta_rank : row.sinta_rank;
+    const effectiveWithdrawnRank = (row: FactWithdrawnRecord) => filters.matchingMode === 'extended' ? row.extended_sinta_rank : row.sinta_rank;
+    const effectiveRejectedId = (row: FactRejectedRecord) => filters.matchingMode === 'extended' && row.extended_match_status === 'matched'
+      ? row.extended_journal_id || row.journal_id
+      : row.journal_id;
+    const effectiveWithdrawnId = (row: FactWithdrawnRecord) => filters.matchingMode === 'extended' && row.extended_match_status === 'matched'
+      ? row.extended_journal_id || row.journal_id
+      : row.journal_id;
+    const matchesText = (title: string, ...values: Array<string | null | undefined>) => !query
+      || title.toLocaleLowerCase().includes(query)
+      || values.some((value) => value?.toLocaleLowerCase().includes(query));
+    const matchesRank = (rank: string) => filters.sintaRank === 'all' || rank === filters.sintaRank;
+
+    const rejectedRows = filters.eventKind === 'withdrawn' ? [] : rejected.filter((row) =>
+      row.event_year !== null
+      && row.event_year >= filters.yearRange[0]
+      && row.event_year <= filters.yearRange[1]
+      && matchesRank(effectiveRejectedRank(row))
+      && matchesText(row.journal_title, row.p_issn_raw, row.e_issn_raw, row.source_record_id),
+    );
+    const withdrawnRows = filters.eventKind === 'rejected' ? [] : withdrawn.filter((row) =>
+      row.last_withdrawn_year !== null
+      && row.last_withdrawn_year >= filters.yearRange[0]
+      && row.last_withdrawn_year <= filters.yearRange[1]
+      && matchesRank(effectiveWithdrawnRank(row))
+      && matchesText(row.journal_title, row.p_issn_raw, row.e_issn_raw, row.source_record_id),
+    );
+    const sintaRows = journals.filter((row) => row.in_sinta
+      && matchesRank(row.sinta_rank)
+      && matchesText(row.display_title, row.journal_id));
+
+    const rejectedIds = new Set(rejectedRows.map(effectiveRejectedId).filter((id): id is string => Boolean(id)));
+    const withdrawnIds = new Set(withdrawnRows.map(effectiveWithdrawnId).filter((id): id is string => Boolean(id)));
+    const sintaIds = new Set(sintaRows.map((row) => row.journal_id));
+    const universe = new Set([...rejectedIds, ...withdrawnIds, ...sintaIds]);
+    const regionDefinitions = [
+      { region: 'R', R: true, W: false, S: false },
+      { region: 'W', R: false, W: true, S: false },
+      { region: 'S', R: false, W: false, S: true },
+      { region: 'RW', R: true, W: true, S: false },
+      { region: 'RS', R: true, W: false, S: true },
+      { region: 'WS', R: false, W: true, S: true },
+      { region: 'RWS', R: true, W: true, S: true },
+    ];
+    const aggregates = regionDefinitions.map((definition) => {
+      const journal_ids = [...universe].filter((id) =>
+        rejectedIds.has(id) === definition.R
+        && withdrawnIds.has(id) === definition.W
+        && sintaIds.has(id) === definition.S,
+      );
+      return { ...definition, count: journal_ids.length, journal_ids };
+    });
+    const histories = new Map<string, FactRejectedRecord[]>();
+    rejectedRows.forEach((row) => {
+      const id = effectiveRejectedId(row);
+      if (!id) return;
+      histories.set(id, [...(histories.get(id) || []), row]);
+    });
+    const repeatGroups = [...histories.values()].filter((rows) => rows.length >= 2);
+
+    return {
+      rejectedRows,
+      withdrawnRows,
+      rejectedIds,
+      withdrawnIds,
+      sintaIds,
+      universeCount: universe.size,
+      repeatRecordJournals: repeatGroups.length,
+      repeatDateJournals: repeatGroups.filter((rows) => new Set(rows.map((row) => row.event_day).filter(Boolean)).size >= 2).length,
+      repeatYearJournals: repeatGroups.filter((rows) => new Set(rows.map((row) => row.event_year).filter((year) => year !== null)).size >= 2).length,
+      intersections: { upset_aggregates: aggregates, unresolved_journal_ids: [] } as IntersectionsPublic,
+    };
+  }, [filters, rejected, withdrawn, journals]);
+
+  const regionRows = filteredView.intersections.upset_aggregates;
+  const regionSortAccessors = useMemo(() => ({
+    partition: (row: typeof regionRows[number]) => row.region,
+    description: (row: typeof regionRows[number]) => row.region,
+    count: (row: typeof regionRows[number]) => row.count,
+    percentage: (row: typeof regionRows[number]) => filteredView.universeCount ? row.count / filteredView.universeCount : 0,
+  }), [filteredView.universeCount]);
+  const { sortedItems: sortedRegions, sortKey, direction, requestSort } = useSortableData(
+    regionRows, regionSortAccessors, 'count', 'desc',
+  );
+
   if (error) {
     return <Alert type="warning" title="Error Loading Overview">{error}</Alert>;
   }
 
-  if (!summary || !intersections) {
+  if (!summary) {
     return <LoadingState message="Loading validated observatory metrics from Codex WP3..." />;
   }
 
-  const { source_record_counts, identity_counts, as_of } = summary;
+  const { identity_counts, as_of } = summary;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
@@ -60,8 +152,8 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({ filters, onNavigateT
       </div>
 
       <Alert type="note" title="Production Verification">
-        Metrics displayed are derived directly from validated, versioned public exports generated by Codex WP3.
-        All 8,898 Rejected, 570 Withdrawn, and 16,620 SINTA source rows are fully preserved and accounted for.
+        Metrics below respond to the active filters and are derived from validated, versioned public exports.
+        The unfiltered baselines preserve all 8,898 Rejected, 570 Withdrawn, and 16,620 SINTA source rows.
       </Alert>
 
       {/* KPI Cards Grid */}
@@ -74,23 +166,23 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({ filters, onNavigateT
       >
         <MetricCard
           label={filters.metricView === 'records' ? 'Total Rejection Records' : 'Distinct Rejected Journals'}
-          value={filters.metricView === 'records' ? source_record_counts.rejected : identity_counts.rejected_resolved_journals}
+          value={filters.metricView === 'records' ? filteredView.rejectedRows.length : filteredView.rejectedIds.size}
           unit={filters.metricView === 'records' ? 'records' : 'journals'}
-          description={`Reconciled across ${identity_counts.rejected_resolved_journals.toLocaleString()} distinct journals`}
+          description={`Reconciled across ${filteredView.rejectedIds.size.toLocaleString()} distinct journals in this view`}
           provenance={`DOAJ Rejected CSV (exported ${as_of.doaj_export_utc} UTC)`}
           color="var(--sanguine)"
         />
         <MetricCard
           label={filters.metricView === 'records' ? 'Total Withdrawn Records' : 'Distinct Withdrawn Journals'}
-          value={filters.metricView === 'records' ? source_record_counts.withdrawn : identity_counts.withdrawn_resolved_journals}
+          value={filters.metricView === 'records' ? filteredView.withdrawnRows.length : filteredView.withdrawnIds.size}
           unit={filters.metricView === 'records' ? 'records' : 'journals'}
-          description={`Reconciled across ${identity_counts.withdrawn_resolved_journals.toLocaleString()} distinct journals`}
+          description={`Reconciled across ${filteredView.withdrawnIds.size.toLocaleString()} distinct journals in this view`}
           provenance={`DOAJ Withdrawn CSV (exported ${as_of.doaj_export_utc} UTC)`}
           color="var(--dark-green)"
         />
         <MetricCard
           label="Total SINTA Population"
-          value={source_record_counts.sinta}
+          value={filteredView.sintaIds.size}
           unit="journals"
           description="National accreditation census"
           provenance={`SINTA Final Census (as of ${as_of.sinta_snapshot})`}
@@ -98,9 +190,9 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({ filters, onNavigateT
         />
         <MetricCard
           label="Multi-Record Rejections"
-          value={summary.repeat_record_journals}
+          value={filteredView.repeatRecordJournals}
           unit="journals"
-          description={`${summary.repeat_date_journals.toLocaleString()} on distinct dates • ${summary.repeat_year_journals.toLocaleString()} spanning ≥2 years`}
+          description={`${filteredView.repeatDateJournals.toLocaleString()} on distinct dates • ${filteredView.repeatYearJournals.toLocaleString()} spanning ≥2 years`}
           provenance="Rejection Chronology Engine"
           color="var(--grapefruit)"
         />
@@ -114,8 +206,8 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({ filters, onNavigateT
               Dataset Intersections (DOAJ Rejected ∩ DOAJ Withdrawn ∩ SINTA)
             </h3>
             <p style={{ fontSize: 'var(--text-sm)', color: 'var(--dark-grey)' }}>
-              Strict ISSN Matching Protocol • Universe of Resolved Journal Entities:{' '}
-              <strong>{summary.intersection_universe_count.toLocaleString()}</strong>
+              {filters.matchingMode === 'strict' ? 'Standard same-type ISSN matching' : 'Expanded print/online ISSN cross-check'} • Filtered journal universe:{' '}
+              <strong>{filteredView.universeCount.toLocaleString()}</strong>
             </p>
           </div>
           <span className="badge badge-neutral">Exact Partitions (WP3 Invariants)</span>
@@ -124,7 +216,7 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({ filters, onNavigateT
         {/* UpSet Chart */}
         <div style={{ marginTop: 'var(--space-4)' }}>
           <UpsetVennChart
-            data={intersections}
+            data={filteredView.intersections}
             onSelectRegion={(reg) => {
               if (reg.includes('R')) onNavigateToRoute('rejected');
               else if (reg.includes('W')) onNavigateToRoute('withdrawn');
@@ -148,15 +240,15 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({ filters, onNavigateT
             </caption>
             <thead>
               <tr style={{ borderBottom: '2px solid var(--neutral-border)', backgroundColor: 'var(--light-grey)' }}>
-                <th style={{ padding: 'var(--space-2) var(--space-3)' }}>Partition Code</th>
-                <th style={{ padding: 'var(--space-2) var(--space-3)' }}>Description & Set Membership</th>
-                <th style={{ padding: 'var(--space-2) var(--space-3)', textAlign: 'right' }}>Reconciled Journal Count</th>
-                <th style={{ padding: 'var(--space-2) var(--space-3)', textAlign: 'right' }}>% of Resolved Universe</th>
+                <SortableHeader columnKey="partition" label="Partition Code" activeKey={sortKey} direction={direction} onSort={requestSort} />
+                <SortableHeader columnKey="description" label="Description & Set Membership" activeKey={sortKey} direction={direction} onSort={requestSort} />
+                <SortableHeader columnKey="count" label="Reconciled Journal Count" activeKey={sortKey} direction={direction} onSort={requestSort} align="right" />
+                <SortableHeader columnKey="percentage" label="% of Filtered Universe" activeKey={sortKey} direction={direction} onSort={requestSort} align="right" />
                 <th style={{ padding: 'var(--space-2) var(--space-3)', textAlign: 'center' }}>Action</th>
               </tr>
             </thead>
             <tbody>
-              {summary.venn_regions.map((reg) => {
+              {sortedRegions.map((reg) => {
                 const getDotColor = () => {
                   if (reg.R && reg.W && reg.S) return 'var(--warm-black)';
                   if (reg.R && reg.S) return 'var(--grapefruit)';
@@ -189,7 +281,7 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({ filters, onNavigateT
                       {reg.count.toLocaleString()}
                     </td>
                     <td style={{ padding: 'var(--space-2) var(--space-3)', textAlign: 'right', fontFamily: 'var(--font-mono)', color: 'var(--dark-grey)' }}>
-                      {((reg.count / summary.intersection_universe_count) * 100).toFixed(2)}%
+                      {filteredView.universeCount ? ((reg.count / filteredView.universeCount) * 100).toFixed(2) : '0.00'}%
                     </td>
                     <td style={{ padding: 'var(--space-2) var(--space-3)', textAlign: 'center' }}>
                       <button
@@ -214,7 +306,7 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({ filters, onNavigateT
                 <td style={{ padding: 'var(--space-2) var(--space-3)' }}>Total Universe</td>
                 <td style={{ padding: 'var(--space-2) var(--space-3)' }}>Sum of all 7 mutually disjoint partitions</td>
                 <td style={{ padding: 'var(--space-2) var(--space-3)', textAlign: 'right', fontFamily: 'var(--font-mono)' }}>
-                  {summary.intersection_universe_count.toLocaleString()}
+                  {filteredView.universeCount.toLocaleString()}
                 </td>
                 <td style={{ padding: 'var(--space-2) var(--space-3)', textAlign: 'right', fontFamily: 'var(--font-mono)' }}>100.00%</td>
                 <td style={{ padding: 'var(--space-2) var(--space-3)' }}></td>

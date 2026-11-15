@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { loadSummary } from '../data/loader';
 import { SummaryPublic, GlobalFilterState } from '../types';
 import { RankBadge, Alert, LoadingState } from '../components/common/UIPrimitives';
+import { SortableHeader, useSortableData } from '../components/common/SortableTable';
 
 interface SintaAnalysisPageProps {
   filters?: GlobalFilterState;
@@ -20,22 +21,14 @@ export const SintaAnalysisPage: React.FC<SintaAnalysisPageProps> = ({
       .catch((err) => setError(err.message || 'Failed to load summary dataset'));
   }, []);
 
-  if (error) {
-    return <Alert type="warning" title="Error Loading SINTA Analysis">{error}</Alert>;
-  }
-
-  if (!summary) {
-    return <LoadingState message="Loading national SINTA population census..." />;
-  }
-
   // Exact SINTA census numbers from Codex WP3 summary
-  const sintaTotal = summary.source_record_counts.sinta; // 16,620
+  const sintaTotal = summary?.source_record_counts.sinta || 0; // 16,620
   const sintaRanks = ['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'NA', 'unmatched'];
 
   const sintaRows = sintaRanks.map((rank) => {
-    const sintaCount = summary.sinta_rank_unique_journal_counts[rank] || 0;
-    const rejectedRecordMatches = summary.rejected_rank_source_record_counts[rank] || 0;
-    const rejectedJournalMatches = summary.rejected_rank_unique_journal_counts[rank] || 0;
+    const sintaCount = summary?.sinta_rank_unique_journal_counts[rank] || 0;
+    const rejectedRecordMatches = summary?.rejected_rank_source_record_counts[rank] || 0;
+    const rejectedJournalMatches = summary?.rejected_rank_unique_journal_counts[rank] || 0;
     const percentage = sintaCount > 0 ? ((sintaCount / sintaTotal) * 100).toFixed(2) : '—';
     const rejectionRate = sintaCount > 0
       ? `${((rejectedJournalMatches / sintaCount) * 100).toFixed(1)}%`
@@ -50,6 +43,25 @@ export const SintaAnalysisPage: React.FC<SintaAnalysisPageProps> = ({
       rejectionRate,
     };
   });
+  const sintaSortAccessors = useMemo(() => ({
+    rank: (row: typeof sintaRows[number]) => row.rank,
+    total: (row: typeof sintaRows[number]) => row.sintaCount,
+    percentage: (row: typeof sintaRows[number]) => row.sintaCount,
+    records: (row: typeof sintaRows[number]) => row.rejectedRecordMatches,
+    journals: (row: typeof sintaRows[number]) => row.rejectedJournalMatches,
+    prevalence: (row: typeof sintaRows[number]) => row.sintaCount ? row.rejectedJournalMatches / row.sintaCount : -1,
+  }), []);
+  const { sortedItems: sortedSintaRows, sortKey, direction, requestSort } = useSortableData(
+    sintaRows, sintaSortAccessors, 'rank', 'asc',
+  );
+
+  if (error) {
+    return <Alert type="warning" title="Error Loading SINTA Analysis">{error}</Alert>;
+  }
+
+  if (!summary) {
+    return <LoadingState message="Loading national SINTA population census..." />;
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
@@ -98,17 +110,17 @@ export const SintaAnalysisPage: React.FC<SintaAnalysisPageProps> = ({
           >
             <thead>
               <tr style={{ borderBottom: '2px solid var(--neutral-border)', backgroundColor: 'var(--white)' }}>
-                <th style={{ padding: 'var(--space-3)' }}>SINTA Tier</th>
-                <th style={{ padding: 'var(--space-3)', textAlign: 'right' }}>Total Journals in SINTA</th>
-                <th style={{ padding: 'var(--space-3)', textAlign: 'right' }}>% of SINTA Census</th>
-                <th style={{ padding: 'var(--space-3)', textAlign: 'right' }}>Matched Rejection Records</th>
-                <th style={{ padding: 'var(--space-3)', textAlign: 'right' }}>Distinct Rejected Journals</th>
-                <th style={{ padding: 'var(--space-3)', textAlign: 'right' }}>Journal Prevalence</th>
+                <SortableHeader columnKey="rank" label="SINTA Tier" activeKey={sortKey} direction={direction} onSort={requestSort} />
+                <SortableHeader columnKey="total" label="Total Journals in SINTA" activeKey={sortKey} direction={direction} onSort={requestSort} align="right" />
+                <SortableHeader columnKey="percentage" label="% of SINTA Census" activeKey={sortKey} direction={direction} onSort={requestSort} align="right" />
+                <SortableHeader columnKey="records" label="Matched Rejection Records" activeKey={sortKey} direction={direction} onSort={requestSort} align="right" />
+                <SortableHeader columnKey="journals" label="Distinct Rejected Journals" activeKey={sortKey} direction={direction} onSort={requestSort} align="right" />
+                <SortableHeader columnKey="prevalence" label="Journal Prevalence" activeKey={sortKey} direction={direction} onSort={requestSort} align="right" />
                 <th style={{ padding: 'var(--space-3)', textAlign: 'center' }}>Action</th>
               </tr>
             </thead>
             <tbody>
-              {sintaRows.map((row) => (
+              {sortedSintaRows.map((row) => (
                 <tr key={row.rank} style={{ borderBottom: '1px solid var(--light-grey)' }}>
                   <td style={{ padding: 'var(--space-3)' }}>
                     <RankBadge rank={row.rank} />

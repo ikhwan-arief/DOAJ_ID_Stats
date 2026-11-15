@@ -2,6 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { loadFactRejected } from '../data/loader';
 import { FactRejectedRecord, GlobalFilterState } from '../types';
 import { RankBadge, Alert, LoadingState } from '../components/common/UIPrimitives';
+import { SortableHeader, useSortableData } from '../components/common/SortableTable';
 
 interface RejectedApplicationsPageProps {
   filters: GlobalFilterState;
@@ -53,16 +54,29 @@ export const RejectedApplicationsPage: React.FC<RejectedApplicationsPageProps> =
     });
   }, [records, filters]);
 
+  const rejectedSortAccessors = useMemo(() => ({
+    id: (record: FactRejectedRecord) => record.source_record_id,
+    title: (record: FactRejectedRecord) => record.journal_title,
+    pIssn: (record: FactRejectedRecord) => record.p_issn_raw,
+    eIssn: (record: FactRejectedRecord) => record.e_issn_raw,
+    date: (record: FactRejectedRecord) => record.event_day,
+    rank: (record: FactRejectedRecord) => filters.matchingMode === 'extended' ? record.extended_sinta_rank : record.sinta_rank,
+    match: (record: FactRejectedRecord) => filters.matchingMode === 'extended' ? record.extended_match_status : record.strict_match_status,
+  }), [filters.matchingMode]);
+  const { sortedItems: sortedRecords, sortKey, direction, requestSort } = useSortableData(
+    filteredRecords, rejectedSortAccessors, 'date', 'desc',
+  );
+
   // Reset to first page when filters change
   useEffect(() => {
     setCurrentPage(1);
   }, [filters]);
 
-  const totalPages = Math.ceil(filteredRecords.length / pageSize) || 1;
+  const totalPages = Math.ceil(sortedRecords.length / pageSize) || 1;
   const pagedRecords = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
-    return filteredRecords.slice(start, start + pageSize);
-  }, [filteredRecords, currentPage]);
+    return sortedRecords.slice(start, start + pageSize);
+  }, [sortedRecords, currentPage]);
 
   const handleExportCSV = () => {
     const headers = [
@@ -74,10 +88,10 @@ export const RejectedApplicationsPage: React.FC<RejectedApplicationsPageProps> =
       'Event Day',
       'Event Year',
       'SINTA Rank (as-of 2026-11-15)',
-      'Strict Match Status',
+      'Match Status',
       'Public Journal URL',
     ];
-    const rows = filteredRecords.map((r) => [
+    const rows = sortedRecords.map((r) => [
       `"${r.source_record_id}"`,
       `"${r.journal_id || ''}"`,
       `"${r.journal_title.replace(/"/g, '""')}"`,
@@ -85,8 +99,8 @@ export const RejectedApplicationsPage: React.FC<RejectedApplicationsPageProps> =
       `"${r.e_issn_raw}"`,
       `"${r.event_day || ''}"`,
       `"${r.event_year || ''}"`,
-      `"${r.sinta_rank}"`,
-      `"${r.strict_match_status}"`,
+      `"${filters.matchingMode === 'extended' ? r.extended_sinta_rank : r.sinta_rank}"`,
+      `"${filters.matchingMode === 'extended' ? r.extended_match_status : r.strict_match_status}"`,
       `"${r.journal_url || ''}"`,
     ]);
     const csvContent = [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
@@ -136,11 +150,6 @@ export const RejectedApplicationsPage: React.FC<RejectedApplicationsPageProps> =
         </button>
       </div>
 
-      <Alert type="important" title="DOAJ Privacy Link Rule">
-        In compliance with project security rules, internal application routes
-        are categorically blocked from public exports and links. Only validated public journal URLs are displayed.
-      </Alert>
-
       {/* Table Card */}
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
         <div style={{ padding: 'var(--space-3) var(--space-4)', backgroundColor: 'var(--light-grey)', borderBottom: '1px solid var(--neutral-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -183,13 +192,13 @@ export const RejectedApplicationsPage: React.FC<RejectedApplicationsPageProps> =
           >
             <thead>
               <tr style={{ borderBottom: '2px solid var(--neutral-border)', backgroundColor: 'var(--white)' }}>
-                <th style={{ padding: 'var(--space-3)' }}>Record ID</th>
-                <th style={{ padding: 'var(--space-3)' }}>Journal Title</th>
-                <th style={{ padding: 'var(--space-3)' }}>P-ISSN</th>
-                <th style={{ padding: 'var(--space-3)' }}>E-ISSN</th>
-                <th style={{ padding: 'var(--space-3)' }}>Date Rejected</th>
-                <th style={{ padding: 'var(--space-3)' }}>SINTA Rank</th>
-                <th style={{ padding: 'var(--space-3)' }}>Match Status</th>
+                <SortableHeader columnKey="id" label="Record ID" activeKey={sortKey} direction={direction} onSort={requestSort} />
+                <SortableHeader columnKey="title" label="Journal Title" activeKey={sortKey} direction={direction} onSort={requestSort} />
+                <SortableHeader columnKey="pIssn" label="P-ISSN" activeKey={sortKey} direction={direction} onSort={requestSort} />
+                <SortableHeader columnKey="eIssn" label="E-ISSN" activeKey={sortKey} direction={direction} onSort={requestSort} />
+                <SortableHeader columnKey="date" label="Date Rejected" activeKey={sortKey} direction={direction} onSort={requestSort} />
+                <SortableHeader columnKey="rank" label="SINTA Rank" activeKey={sortKey} direction={direction} onSort={requestSort} />
+                <SortableHeader columnKey="match" label="Match Status" activeKey={sortKey} direction={direction} onSort={requestSort} />
                 <th style={{ padding: 'var(--space-3)' }}>Actions</th>
               </tr>
             </thead>

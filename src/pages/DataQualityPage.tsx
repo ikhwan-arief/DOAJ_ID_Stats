@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { loadDataQuality, loadSummary } from '../data/loader';
 import { DataQualityPublic, SummaryPublic } from '../types';
 import { Alert, LoadingState } from '../components/common/UIPrimitives';
+import { SortableHeader, useSortableData } from '../components/common/SortableTable';
 
 export const DataQualityPage: React.FC = () => {
   const [quality, setQuality] = useState<DataQualityPublic | null>(null);
@@ -16,6 +17,22 @@ export const DataQualityPage: React.FC = () => {
       })
       .catch((err) => setError(err.message || 'Failed to load data quality datasets'));
   }, []);
+
+  const manifestRows = useMemo(() => summary ? [
+    { label: 'DOAJ Rejected Applications', rows: summary.source_record_counts.rejected, journals: summary.identity_counts.rejected_resolved_journals, date: summary.as_of.doaj_export_utc, dateLabel: `${summary.as_of.doaj_export_utc} UTC`, integrity: '100% Conserved' },
+    { label: 'DOAJ Last Withdrawn', rows: summary.source_record_counts.withdrawn, journals: summary.identity_counts.withdrawn_resolved_journals, date: summary.as_of.doaj_export_utc, dateLabel: `${summary.as_of.doaj_export_utc} UTC`, integrity: '100% Conserved' },
+    { label: 'SINTA National Database', rows: summary.source_record_counts.sinta, journals: summary.identity_counts.sinta_journals, date: summary.as_of.sinta_snapshot, dateLabel: `${summary.as_of.sinta_snapshot} (Final Census)`, integrity: '100% Conserved' },
+  ] : [], [summary]);
+  const manifestAccessors = useMemo(() => ({
+    label: (row: typeof manifestRows[number]) => row.label,
+    rows: (row: typeof manifestRows[number]) => row.rows,
+    journals: (row: typeof manifestRows[number]) => row.journals,
+    date: (row: typeof manifestRows[number]) => row.date,
+    integrity: (row: typeof manifestRows[number]) => row.integrity,
+  }), []);
+  const { sortedItems: sortedManifestRows, sortKey, direction, requestSort } = useSortableData(
+    manifestRows, manifestAccessors, 'date', 'desc',
+  );
 
   if (error) {
     return <Alert type="warning" title="Error Loading Data Quality">{error}</Alert>;
@@ -187,47 +204,23 @@ export const DataQualityPage: React.FC = () => {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--text-sm)', textAlign: 'left' }}>
             <thead>
               <tr style={{ borderBottom: '2px solid var(--neutral-border)', backgroundColor: 'var(--light-grey)' }}>
-                <th style={{ padding: 'var(--space-2) var(--space-3)' }}>Source Logical Label</th>
-                <th style={{ padding: 'var(--space-2) var(--space-3)' }}>Baseline Source Rows</th>
-                <th style={{ padding: 'var(--space-2) var(--space-3)' }}>Reconciled Unique Journals</th>
-                <th style={{ padding: 'var(--space-2) var(--space-3)' }}>Export / Snapshot Date</th>
-                <th style={{ padding: 'var(--space-2) var(--space-3)' }}>Integrity Verification</th>
+                <SortableHeader columnKey="label" label="Source Logical Label" activeKey={sortKey} direction={direction} onSort={requestSort} />
+                <SortableHeader columnKey="rows" label="Baseline Source Rows" activeKey={sortKey} direction={direction} onSort={requestSort} />
+                <SortableHeader columnKey="journals" label="Reconciled Unique Journals" activeKey={sortKey} direction={direction} onSort={requestSort} />
+                <SortableHeader columnKey="date" label="Export / Snapshot Date" activeKey={sortKey} direction={direction} onSort={requestSort} />
+                <SortableHeader columnKey="integrity" label="Integrity Verification" activeKey={sortKey} direction={direction} onSort={requestSort} />
               </tr>
             </thead>
             <tbody>
-              <tr style={{ borderBottom: '1px solid var(--light-grey)' }}>
-                <td style={{ padding: 'var(--space-2) var(--space-3)', fontWeight: 600 }}>DOAJ Rejected Applications</td>
-                <td style={{ padding: 'var(--space-2) var(--space-3)', fontFamily: 'var(--font-mono)' }}>
-                  {summary.source_record_counts.rejected.toLocaleString()}
-                </td>
-                <td style={{ padding: 'var(--space-2) var(--space-3)', fontFamily: 'var(--font-mono)' }}>
-                  {summary.identity_counts.rejected_resolved_journals.toLocaleString()}
-                </td>
-                <td style={{ padding: 'var(--space-2) var(--space-3)' }}>{summary.as_of.doaj_export_utc} UTC</td>
-                <td style={{ padding: 'var(--space-2) var(--space-3)', color: 'var(--mid-green)', fontWeight: 600 }}>100% Conserved</td>
-              </tr>
-              <tr style={{ borderBottom: '1px solid var(--light-grey)' }}>
-                <td style={{ padding: 'var(--space-2) var(--space-3)', fontWeight: 600 }}>DOAJ Last Withdrawn</td>
-                <td style={{ padding: 'var(--space-2) var(--space-3)', fontFamily: 'var(--font-mono)' }}>
-                  {summary.source_record_counts.withdrawn.toLocaleString()}
-                </td>
-                <td style={{ padding: 'var(--space-2) var(--space-3)', fontFamily: 'var(--font-mono)' }}>
-                  {summary.identity_counts.withdrawn_resolved_journals.toLocaleString()}
-                </td>
-                <td style={{ padding: 'var(--space-2) var(--space-3)' }}>{summary.as_of.doaj_export_utc} UTC</td>
-                <td style={{ padding: 'var(--space-2) var(--space-3)', color: 'var(--mid-green)', fontWeight: 600 }}>100% Conserved</td>
-              </tr>
-              <tr style={{ borderBottom: '1px solid var(--light-grey)' }}>
-                <td style={{ padding: 'var(--space-2) var(--space-3)', fontWeight: 600 }}>SINTA National Database</td>
-                <td style={{ padding: 'var(--space-2) var(--space-3)', fontFamily: 'var(--font-mono)' }}>
-                  {summary.source_record_counts.sinta.toLocaleString()}
-                </td>
-                <td style={{ padding: 'var(--space-2) var(--space-3)', fontFamily: 'var(--font-mono)' }}>
-                  {summary.identity_counts.sinta_journals.toLocaleString()}
-                </td>
-                <td style={{ padding: 'var(--space-2) var(--space-3)' }}>{summary.as_of.sinta_snapshot} (Final Census)</td>
-                <td style={{ padding: 'var(--space-2) var(--space-3)', color: 'var(--mid-green)', fontWeight: 600 }}>100% Conserved</td>
-              </tr>
+              {sortedManifestRows.map((row) => (
+                <tr key={row.label} style={{ borderBottom: '1px solid var(--light-grey)' }}>
+                  <td style={{ padding: 'var(--space-2) var(--space-3)', fontWeight: 600 }}>{row.label}</td>
+                  <td style={{ padding: 'var(--space-2) var(--space-3)', fontFamily: 'var(--font-mono)' }}>{row.rows.toLocaleString()}</td>
+                  <td style={{ padding: 'var(--space-2) var(--space-3)', fontFamily: 'var(--font-mono)' }}>{row.journals.toLocaleString()}</td>
+                  <td style={{ padding: 'var(--space-2) var(--space-3)' }}>{row.dateLabel}</td>
+                  <td style={{ padding: 'var(--space-2) var(--space-3)', color: 'var(--mid-green)', fontWeight: 600 }}>{row.integrity}</td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>

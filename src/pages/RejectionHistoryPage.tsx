@@ -2,6 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { loadRejectionHistory, loadDimJournals, loadSummary } from '../data/loader';
 import { RejectionHistoryRecord, DimJournalRecord, SummaryPublic, GlobalFilterState } from '../types';
 import { RankBadge, Alert, LoadingState } from '../components/common/UIPrimitives';
+import { SortableHeader, useSortableData } from '../components/common/SortableTable';
 
 interface RejectionHistoryPageProps {
   filters: GlobalFilterState;
@@ -61,15 +62,28 @@ export const RejectionHistoryPage: React.FC<RejectionHistoryPageProps> = ({
     });
   }, [history, dimJournals, filters]);
 
+  const historySortAccessors = useMemo(() => ({
+    journal: (item: RejectionHistoryRecord) => dimJournals?.get(item.journal_id)?.display_title || item.journal_id,
+    rank: (item: RejectionHistoryRecord) => dimJournals?.get(item.journal_id)?.sinta_rank || 'unmatched',
+    records: (item: RejectionHistoryRecord) => item.source_record_count,
+    days: (item: RejectionHistoryRecord) => item.distinct_event_day_count,
+    years: (item: RejectionHistoryRecord) => item.distinct_event_year_count,
+    dates: (item: RejectionHistoryRecord) => item.event_days[item.event_days.length - 1] || '',
+    gaps: (item: RejectionHistoryRecord) => item.consecutive_day_gaps[item.consecutive_day_gaps.length - 1] ?? -1,
+  }), [dimJournals]);
+  const { sortedItems: sortedHistory, sortKey, direction, requestSort } = useSortableData(
+    filteredHistory, historySortAccessors, 'dates', 'desc',
+  );
+
   useEffect(() => {
     setCurrentPage(1);
   }, [filters]);
 
-  const totalPages = Math.ceil(filteredHistory.length / pageSize) || 1;
+  const totalPages = Math.ceil(sortedHistory.length / pageSize) || 1;
   const pagedHistory = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
-    return filteredHistory.slice(start, start + pageSize);
-  }, [filteredHistory, currentPage]);
+    return sortedHistory.slice(start, start + pageSize);
+  }, [sortedHistory, currentPage]);
 
   if (error) {
     return <Alert type="warning" title="Error Loading Rejection History">{error}</Alert>;
@@ -215,13 +229,13 @@ export const RejectionHistoryPage: React.FC<RejectionHistoryPageProps> = ({
           >
             <thead>
               <tr style={{ borderBottom: '2px solid var(--neutral-border)', backgroundColor: 'var(--white)' }}>
-                <th style={{ padding: 'var(--space-3)' }}>Journal Identifier & Title</th>
-                <th style={{ padding: 'var(--space-3)' }}>SINTA Rank</th>
-                <th style={{ padding: 'var(--space-3)', textAlign: 'center' }}>Total Records</th>
-                <th style={{ padding: 'var(--space-3)', textAlign: 'center' }}>Distinct Days</th>
-                <th style={{ padding: 'var(--space-3)', textAlign: 'center' }}>Span Years</th>
-                <th style={{ padding: 'var(--space-3)' }}>Event Dates</th>
-                <th style={{ padding: 'var(--space-3)' }}>Day Gaps</th>
+                <SortableHeader columnKey="journal" label="Journal Identifier & Title" activeKey={sortKey} direction={direction} onSort={requestSort} />
+                <SortableHeader columnKey="rank" label="SINTA Rank" activeKey={sortKey} direction={direction} onSort={requestSort} />
+                <SortableHeader columnKey="records" label="Total Records" activeKey={sortKey} direction={direction} onSort={requestSort} align="center" />
+                <SortableHeader columnKey="days" label="Distinct Days" activeKey={sortKey} direction={direction} onSort={requestSort} align="center" />
+                <SortableHeader columnKey="years" label="Span Years" activeKey={sortKey} direction={direction} onSort={requestSort} align="center" />
+                <SortableHeader columnKey="dates" label="Event Dates" activeKey={sortKey} direction={direction} onSort={requestSort} />
+                <SortableHeader columnKey="gaps" label="Day Gaps" activeKey={sortKey} direction={direction} onSort={requestSort} />
                 <th style={{ padding: 'var(--space-3)' }}>Action</th>
               </tr>
             </thead>

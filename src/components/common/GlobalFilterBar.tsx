@@ -102,7 +102,7 @@ export const GlobalFilterBar: React.FC<GlobalFilterBarProps> = ({
               htmlFor="filter-match-select"
               style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--dark-grey)' }}
             >
-              Matching Protocol
+              Journal Matching Method
             </label>
             <select
               id="filter-match-select"
@@ -111,8 +111,8 @@ export const GlobalFilterBar: React.FC<GlobalFilterBarProps> = ({
                 onChange({ ...filters, matchingMode: e.target.value as 'strict' | 'extended' })
               }
             >
-              <option value="strict">Strict (e-to-e / p-to-p)</option>
-              <option value="extended">Extended (Cross-medium)</option>
+              <option value="strict">Standard — same ISSN type</option>
+              <option value="extended">Expanded — also cross-check print/online</option>
             </select>
           </div>
 

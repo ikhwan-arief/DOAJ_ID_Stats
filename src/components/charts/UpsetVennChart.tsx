@@ -14,7 +14,7 @@ export const UpsetVennChart: React.FC<UpsetChartProps> = ({ data, onSelectRegion
     { key: 'S', label: 'SINTA Population (S)', color: 'var(--mid-green)', count: aggregates.filter((item) => item.S).reduce((sum, item) => sum + item.count, 0) },
   ];
   const universeCount = aggregates.reduce((sum, item) => sum + item.count, 0);
-  const maxCount = Math.max(...aggregates.map((a) => a.count));
+  const maxCount = Math.max(1, ...aggregates.map((a) => a.count));
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
