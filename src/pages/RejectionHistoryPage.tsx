@@ -405,12 +405,12 @@ export const RejectionHistoryPage: React.FC<RejectionHistoryPageProps> = ({
                 }}
               >
                 <div style={{ fontWeight: 700, fontSize: 'var(--text-xs)', color: 'var(--warm-black)', textTransform: 'uppercase' }}>
-                  {freq} Rejection{freq === '1' ? '' : 's'} ({data.total_journals.toLocaleString()} journals)
+                  {freq} Rejection{freq === '1' ? '' : 's'} ({data.total.toLocaleString()} journals)
                 </div>
                 <div style={{ marginTop: 'var(--space-2)', fontSize: 'var(--text-xs)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <span style={{ color: 'var(--dark-green)', fontWeight: 600 }}>Currently Indexed:</span>
-                    <strong>{data.currently_indexed.toLocaleString()} ({((data.currently_indexed / (data.total_journals || 1)) * 100).toFixed(1)}%)</strong>
+                    <strong>{data.currently_indexed.toLocaleString()} ({((data.currently_indexed / (data.total || 1)) * 100).toFixed(1)}%)</strong>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <span style={{ color: 'var(--dark-navy)' }}>Accepted Record:</span>

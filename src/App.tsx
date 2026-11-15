@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Layout } from './components/layout/Layout';
 import { RouteId } from './components/layout/Header';
 import { GlobalFilterState } from './types';
+import { ErrorBoundary } from './components/common/ErrorBoundary';
 
 // Page components
 import { OverviewPage } from './pages/OverviewPage';
@@ -132,14 +133,18 @@ export const App: React.FC = () => {
   };
 
   return (
-    <Layout
-      currentRoute={currentRoute}
-      onRouteChange={handleRouteChange}
-      filters={filters}
-      onFilterChange={setFilters}
-      onResetFilters={handleResetFilters}
-    >
-      {renderActiveRoute()}
-    </Layout>
+    <ErrorBoundary fallbackTitle="Observatory Shell Error">
+      <Layout
+        currentRoute={currentRoute}
+        onRouteChange={handleRouteChange}
+        filters={filters}
+        onFilterChange={setFilters}
+        onResetFilters={handleResetFilters}
+      >
+        <ErrorBoundary fallbackTitle={`Observatory View Error (${currentRoute})`}>
+          {renderActiveRoute()}
+        </ErrorBoundary>
+      </Layout>
+    </ErrorBoundary>
   );
 };

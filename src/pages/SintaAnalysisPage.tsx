@@ -509,7 +509,7 @@ export const SintaAnalysisPage: React.FC<SintaAnalysisPageProps> = ({
                   15.0%
                 </td>
                 <td style={{ padding: 'var(--space-3)', textAlign: 'right', fontFamily: 'var(--font-mono)', color: 'var(--sanguine)' }}>
-                  {summary.rejected_rank_source_record_counts ? Object.values(summary.rejected_rank_source_record_counts).reduce((a, b) => a + b, 0).toLocaleString() : '8,898'}
+                  {summary.rejected_rank_source_record_counts ? Object.values(summary.rejected_rank_source_record_counts).reduce((a, b) => a + b, 0).toLocaleString() : '9,308'}
                 </td>
                 <td style={{ padding: 'var(--space-3)', textAlign: 'right', fontFamily: 'var(--font-mono)' }}>
                   {summary.identity_counts.rejected_resolved_journals.toLocaleString()}

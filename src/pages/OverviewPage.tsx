@@ -403,7 +403,7 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({ filters, onNavigateT
               <div style={{ padding: 'var(--space-2) var(--space-3)', backgroundColor: 'var(--light-grey)', borderRadius: 'var(--radius-sm)' }}>
                 <div style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)' }}>Historical Rejections Currently Indexed</div>
                 <div style={{ fontWeight: 700, fontSize: 'var(--text-base)', color: 'var(--dark-green)' }}>
-                  {summary.current_doaj_summary.rejected_journals_current_status.currently_indexed?.toLocaleString() || 508} journals
+                  {summary.current_doaj_summary.rejected_journals_current_status.currently_indexed?.toLocaleString() || 547} journals
                 </div>
               </div>
               <div style={{ padding: 'var(--space-2) var(--space-3)', backgroundColor: 'var(--light-grey)', borderRadius: 'var(--radius-sm)' }}>

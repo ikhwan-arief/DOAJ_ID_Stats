@@ -53,7 +53,7 @@ export interface LifecycleSummary {
   rejection_frequency_outcomes: Record<
     string,
     {
-      total_journals: number;
+      total: number;
       currently_indexed: number;
       accepted_overlap: number;
       withdrawn_overlap: number;
