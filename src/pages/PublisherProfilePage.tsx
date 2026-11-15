@@ -428,7 +428,7 @@ export const PublisherProfilePage: React.FC<PublisherProfilePageProps> = ({
 
   if (loading) {
     return (
-      <div className="container" style={{ padding: 'var(--space-8) 0' }}>
+      <div style={{ padding: 'var(--space-8) 0' }}>
         <LoadingState message="Resolving publisher profile and journal portfolio..." />
       </div>
     );
@@ -436,7 +436,7 @@ export const PublisherProfilePage: React.FC<PublisherProfilePageProps> = ({
 
   if (error || !publisher) {
     return (
-      <div className="container" style={{ padding: 'var(--space-8) 0' }}>
+      <div style={{ padding: 'var(--space-8) 0' }}>
         <Alert
           type="warning"
           title="Publisher Profile Not Found"
@@ -453,7 +453,7 @@ export const PublisherProfilePage: React.FC<PublisherProfilePageProps> = ({
   }
 
   return (
-    <div className="container" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)', paddingBottom: 'var(--space-12)' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)', paddingBottom: 'var(--space-12)' }}>
       {/* Navigation Breadcrumb & Back Bar */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-3)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
@@ -684,32 +684,7 @@ export const PublisherProfilePage: React.FC<PublisherProfilePageProps> = ({
         </div>
       </section>
 
-      {/* Analytical Charts for this Publisher */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(450px, 1fr))', gap: 'var(--space-4)' }}>
-        <BaseEChart
-          options={eventTrendOption}
-          height={300}
-          title={`Annual Event Volume (2022–2026): ${publisher.canonical_name}`}
-          metricLabel="Event Record Volume"
-          unit="Records"
-          denominatorNote="Authoritative DOAJ Event Registries"
-          scopeNote="2022–2026 Multi-Year Coverage"
-          ariaLabel="Annual event trend bar chart for publisher"
-        />
-
-        <BaseEChart
-          options={sintaDistOption}
-          height={300}
-          title={`SINTA Accreditation Tier Composition: ${publisher.canonical_name}`}
-          metricLabel="Journals in Portfolio"
-          unit="Unique Journals"
-          denominatorNote={`Portfolio Universe: ${publisher.distinct_journal_count} Journals`}
-          scopeNote="SINTA 15 Nov 2026 Snapshot"
-          ariaLabel="SINTA rank distribution bar chart for publisher"
-        />
-      </div>
-
-      {/* Publisher Journal Portfolio Section (Core Requirement #15) */}
+      {/* Publisher Journal Portfolio Section (Primary Section - Core Portfolio) */}
       <section className="card" style={{ padding: 'var(--space-6)', display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 'var(--space-3)' }}>
           <div>
@@ -989,6 +964,31 @@ export const PublisherProfilePage: React.FC<PublisherProfilePageProps> = ({
           </div>
         )}
       </section>
+
+      {/* Analytical Charts for this Publisher */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(450px, 1fr))', gap: 'var(--space-4)' }}>
+        <BaseEChart
+          options={eventTrendOption}
+          height={300}
+          title={`Annual Event Volume (2022–2026): ${publisher.canonical_name}`}
+          metricLabel="Event Record Volume"
+          unit="Records"
+          denominatorNote="Authoritative DOAJ Event Registries"
+          scopeNote="2022–2026 Multi-Year Coverage"
+          ariaLabel="Annual event trend bar chart for publisher"
+        />
+
+        <BaseEChart
+          options={sintaDistOption}
+          height={300}
+          title={`SINTA Accreditation Tier Composition: ${publisher.canonical_name}`}
+          metricLabel="Journals in Portfolio"
+          unit="Unique Journals"
+          denominatorNote={`Portfolio Universe: ${publisher.distinct_journal_count} Journals`}
+          scopeNote="SINTA 15 Nov 2026 Snapshot"
+          ariaLabel="SINTA rank distribution bar chart for publisher"
+        />
+      </div>
     </div>
   );
 };

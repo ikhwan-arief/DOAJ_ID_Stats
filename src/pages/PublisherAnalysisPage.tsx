@@ -1,5 +1,5 @@
 /**
- * Publisher Analysis Page Component (Primary Route 8: #/publishers).
+ * Publisher Analysis Page Component (Primary Route 7: #/publishers).
  * Displays publisher-level KPIs, 6 analytical charts with Download PNG,
  * and a searchable, sortable, paginated publisher directory table with CSV export.
  *
@@ -26,6 +26,7 @@ interface PublisherAnalysisPageProps {
 }
 
 export const PublisherAnalysisPage: React.FC<PublisherAnalysisPageProps> = ({
+  filters,
   onSelectPublisher,
 }) => {
   const [publishers, setPublishers] = useState<PublisherRecord[] | null>(null);
@@ -39,7 +40,13 @@ export const PublisherAnalysisPage: React.FC<PublisherAnalysisPageProps> = ({
   const [historyFilter, setHistoryFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState<number>(1);
-  const pageSize = 50;
+  const [pageSize, setPageSize] = useState<number>(25);
+
+  // Column visibility controls: simplified default columns
+  const [showCountry, setShowCountry] = useState<boolean>(false);
+  const [showAccepted, setShowAccepted] = useState<boolean>(false);
+  const [showSintaMatched, setShowSintaMatched] = useState<boolean>(false);
+  const [showIdentityStatus, setShowIdentityStatus] = useState<boolean>(false);
 
   // Chart controls
   const [topLimit, setTopLimit] = useState<number>(10);
@@ -68,10 +75,11 @@ export const PublisherAnalysisPage: React.FC<PublisherAnalysisPageProps> = ({
     return Array.from(set).sort();
   }, [publishers]);
 
-  // Filtered publishers table list
+  // Filtered publishers table list (incorporating global filters if provided)
   const filteredPublishers = useMemo(() => {
     if (!publishers) return [];
     return publishers.filter((p) => {
+      // Local filters
       if (countryFilter !== 'all' && (p.country || 'Indonesia') !== countryFilter) return false;
       if (historyFilter === 'rejected' && p.rejected_journal_count === 0) return false;
       if (historyFilter === 'accepted' && p.accepted_journal_count === 0) return false;
@@ -79,16 +87,35 @@ export const PublisherAnalysisPage: React.FC<PublisherAnalysisPageProps> = ({
       if (statusFilter === 'currently_indexed' && p.currently_indexed_journal_count === 0) return false;
       if (statusFilter === 'not_indexed' && p.currently_indexed_journal_count > 0) return false;
 
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase().trim();
-        const nameMatch = p.canonical_name.toLowerCase().includes(q);
-        const aliasMatch = p.aliases.some((a) => a.toLowerCase().includes(q));
-        const idMatch = p.publisher_id.toLowerCase().includes(q);
+      // Global filter: sintaRank
+      if (filters?.sintaRank && filters.sintaRank !== 'all') {
+        const countForRank = p.sinta_ranks[filters.sintaRank] || 0;
+        if (countForRank === 0) return false;
+      }
+
+      // Global filter: eventKind
+      if (filters?.eventKind && filters.eventKind !== 'all') {
+        if (filters.eventKind === 'rejected' && p.rejected_journal_count === 0) return false;
+        if (filters.eventKind === 'withdrawn' && p.withdrawn_journal_count === 0) return false;
+      }
+
+      // Global filter: currentDoajStatus
+      if (filters?.currentDoajStatus && filters.currentDoajStatus !== 'all') {
+        if (filters.currentDoajStatus === 'currently_indexed' && p.currently_indexed_journal_count === 0) return false;
+        if (filters.currentDoajStatus === 'not_found' && p.currently_indexed_journal_count > 0) return false;
+      }
+
+      // Search query (combines local search and global search if present)
+      const effectiveSearch = (searchQuery.trim() || filters?.searchQuery?.trim() || '').toLowerCase();
+      if (effectiveSearch) {
+        const nameMatch = p.canonical_name.toLowerCase().includes(effectiveSearch);
+        const aliasMatch = p.aliases.some((a) => a.toLowerCase().includes(effectiveSearch));
+        const idMatch = p.publisher_id.toLowerCase().includes(effectiveSearch);
         if (!nameMatch && !aliasMatch && !idMatch) return false;
       }
       return true;
     });
-  }, [publishers, countryFilter, historyFilter, statusFilter, searchQuery]);
+  }, [publishers, countryFilter, historyFilter, statusFilter, searchQuery, filters]);
 
   const publisherSortAccessors = useMemo(() => ({
     name: (p: PublisherRecord) => p.canonical_name,
@@ -191,7 +218,9 @@ export const PublisherAnalysisPage: React.FC<PublisherAnalysisPageProps> = ({
         data: names,
         axisLabel: {
           interval: 0,
-          formatter: (value: string) => (value.length > 30 ? `${value.slice(0, 28)}…` : value),
+          width: 220,
+          overflow: 'truncate',
+          formatter: (value: string) => (value.length > 32 ? `${value.slice(0, 30)}…` : value),
         },
       },
       series: [
@@ -242,7 +271,9 @@ export const PublisherAnalysisPage: React.FC<PublisherAnalysisPageProps> = ({
         data: names,
         axisLabel: {
           interval: 0,
-          formatter: (value: string) => (value.length > 30 ? `${value.slice(0, 28)}…` : value),
+          width: 220,
+          overflow: 'truncate',
+          formatter: (value: string) => (value.length > 32 ? `${value.slice(0, 30)}…` : value),
         },
       },
       series: [
@@ -282,7 +313,9 @@ export const PublisherAnalysisPage: React.FC<PublisherAnalysisPageProps> = ({
         data: names,
         axisLabel: {
           interval: 0,
-          formatter: (value: string) => (value.length > 30 ? `${value.slice(0, 28)}…` : value),
+          width: 220,
+          overflow: 'truncate',
+          formatter: (value: string) => (value.length > 32 ? `${value.slice(0, 30)}…` : value),
         },
       },
       series: [
@@ -453,7 +486,7 @@ export const PublisherAnalysisPage: React.FC<PublisherAnalysisPageProps> = ({
 
   if (loading) {
     return (
-      <div className="container" style={{ padding: 'var(--space-8) 0' }}>
+      <div style={{ padding: 'var(--space-8) 0' }}>
         <LoadingState message="Loading publisher intelligence and directory..." />
       </div>
     );
@@ -461,7 +494,7 @@ export const PublisherAnalysisPage: React.FC<PublisherAnalysisPageProps> = ({
 
   if (error || !summary || !publishers) {
     return (
-      <div className="container" style={{ padding: 'var(--space-8) 0' }}>
+      <div style={{ padding: 'var(--space-8) 0' }}>
         <Alert
           type="warning"
           title="Publisher Analysis Unavailable"
@@ -473,12 +506,12 @@ export const PublisherAnalysisPage: React.FC<PublisherAnalysisPageProps> = ({
   }
 
   return (
-    <div className="container" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)', paddingBottom: 'var(--space-12)' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)', paddingBottom: 'var(--space-12)' }}>
       {/* Route Header */}
       <div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
           <span className="badge badge-neutral" style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            Primary Route 8
+            Observatory Dashboard • Route 7
           </span>
           <span style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)' }}>
             Snapshot Observation: 15 November 2026
@@ -803,6 +836,29 @@ export const PublisherAnalysisPage: React.FC<PublisherAnalysisPageProps> = ({
             </select>
           </div>
 
+          {/* Optional Columns Visibility Toggle */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 8px', background: 'var(--white)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--neutral-border)' }}>
+            <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--dark-grey)', textTransform: 'uppercase' }}>
+              Columns:
+            </span>
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', cursor: 'pointer' }}>
+              <input type="checkbox" checked={showCountry} onChange={(e) => setShowCountry(e.target.checked)} />
+              Country
+            </label>
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', cursor: 'pointer' }}>
+              <input type="checkbox" checked={showAccepted} onChange={(e) => setShowAccepted(e.target.checked)} />
+              Accepted
+            </label>
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', cursor: 'pointer' }}>
+              <input type="checkbox" checked={showSintaMatched} onChange={(e) => setShowSintaMatched(e.target.checked)} />
+              SINTA Matched
+            </label>
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', cursor: 'pointer' }}>
+              <input type="checkbox" checked={showIdentityStatus} onChange={(e) => setShowIdentityStatus(e.target.checked)} />
+              Identity Status
+            </label>
+          </div>
+
           <span style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)', marginLeft: 'auto' }}>
             Showing <strong>{sortedPublishers.length}</strong> of {publishers.length} publishers
           </span>
@@ -814,21 +870,21 @@ export const PublisherAnalysisPage: React.FC<PublisherAnalysisPageProps> = ({
             <thead>
               <tr style={{ background: 'var(--sand-light)', borderBottom: '2px solid var(--sand-medium)' }}>
                 <SortableHeader columnKey="name" label="Publisher Name" activeKey={sortKey} direction={direction} onSort={requestSort} />
-                <SortableHeader columnKey="country" label="Country" activeKey={sortKey} direction={direction} onSort={requestSort} />
+                {showCountry && <SortableHeader columnKey="country" label="Country" activeKey={sortKey} direction={direction} onSort={requestSort} />}
                 <SortableHeader columnKey="distinct" label="Distinct Journals" activeKey={sortKey} direction={direction} onSort={requestSort} align="right" />
                 <SortableHeader columnKey="rejected" label="Rejected Journals" activeKey={sortKey} direction={direction} onSort={requestSort} align="right" />
-                <SortableHeader columnKey="accepted" label="Accepted Journals" activeKey={sortKey} direction={direction} onSort={requestSort} align="right" />
+                {showAccepted && <SortableHeader columnKey="accepted" label="Accepted Journals" activeKey={sortKey} direction={direction} onSort={requestSort} align="right" />}
                 <SortableHeader columnKey="withdrawn" label="Withdrawn Journals" activeKey={sortKey} direction={direction} onSort={requestSort} align="right" />
                 <SortableHeader columnKey="current" label="Currently Indexed" activeKey={sortKey} direction={direction} onSort={requestSort} align="right" />
-                <SortableHeader columnKey="sinta" label="SINTA Matched" activeKey={sortKey} direction={direction} onSort={requestSort} align="right" />
-                <th style={{ padding: 'var(--space-3)', textAlign: 'center' }}>Identity Status</th>
+                {showSintaMatched && <SortableHeader columnKey="sinta" label="SINTA Matched" activeKey={sortKey} direction={direction} onSort={requestSort} align="right" />}
+                {showIdentityStatus && <th style={{ padding: 'var(--space-3)', textAlign: 'center' }}>Identity Status</th>}
                 <th style={{ padding: 'var(--space-3)', textAlign: 'center' }}>Action</th>
               </tr>
             </thead>
             <tbody>
               {paginatedPublishers.length === 0 ? (
                 <tr>
-                  <td colSpan={10} style={{ textAlign: 'center', padding: 'var(--space-8)', color: 'var(--dark-grey)' }}>
+                  <td colSpan={6 + (showCountry ? 1 : 0) + (showAccepted ? 1 : 0) + (showSintaMatched ? 1 : 0) + (showIdentityStatus ? 1 : 0)} style={{ textAlign: 'center', padding: 'var(--space-8)', color: 'var(--dark-grey)' }}>
                     No publisher entities match the current search and filter criteria.
                   </td>
                 </tr>
@@ -858,17 +914,13 @@ export const PublisherAnalysisPage: React.FC<PublisherAnalysisPageProps> = ({
                       >
                         {p.canonical_name}
                       </button>
-                      {p.aliases.length > 0 && (
-                        <div style={{ fontSize: '11px', color: 'var(--dark-grey)', fontWeight: 400, marginTop: '2px' }}>
-                          Aliases: {p.aliases.slice(0, 2).join('; ')}
-                          {p.aliases.length > 2 ? ` (+${p.aliases.length - 2} more)` : ''}
-                        </div>
-                      )}
                     </td>
 
-                    <td style={{ padding: '10px 12px', fontSize: 'var(--text-xs)', color: 'var(--dark-grey)' }}>
-                      {p.country || 'Indonesia'}
-                    </td>
+                    {showCountry && (
+                      <td style={{ padding: '10px 12px', fontSize: 'var(--text-xs)', color: 'var(--dark-grey)' }}>
+                        {p.country || 'Indonesia'}
+                      </td>
+                    )}
 
                     <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
                       {p.distinct_journal_count.toLocaleString()}
@@ -878,9 +930,11 @@ export const PublisherAnalysisPage: React.FC<PublisherAnalysisPageProps> = ({
                       {p.rejected_journal_count.toLocaleString()}
                     </td>
 
-                    <td style={{ padding: '10px 12px', textAlign: 'right', fontFamily: 'var(--font-mono)', color: p.accepted_journal_count > 0 ? 'var(--leaf-green)' : 'inherit' }}>
-                      {p.accepted_journal_count.toLocaleString()}
-                    </td>
+                    {showAccepted && (
+                      <td style={{ padding: '10px 12px', textAlign: 'right', fontFamily: 'var(--font-mono)', color: p.accepted_journal_count > 0 ? 'var(--leaf-green)' : 'inherit' }}>
+                        {p.accepted_journal_count.toLocaleString()}
+                      </td>
+                    )}
 
                     <td style={{ padding: '10px 12px', textAlign: 'right', fontFamily: 'var(--font-mono)', color: p.withdrawn_journal_count > 0 ? 'var(--amber-gold)' : 'inherit' }}>
                       {p.withdrawn_journal_count.toLocaleString()}
@@ -890,23 +944,27 @@ export const PublisherAnalysisPage: React.FC<PublisherAnalysisPageProps> = ({
                       {p.currently_indexed_journal_count.toLocaleString()}
                     </td>
 
-                    <td style={{ padding: '10px 12px', textAlign: 'right', fontFamily: 'var(--font-mono)' }}>
-                      {p.sinta_matched_journal_count.toLocaleString()}
-                    </td>
+                    {showSintaMatched && (
+                      <td style={{ padding: '10px 12px', textAlign: 'right', fontFamily: 'var(--font-mono)' }}>
+                        {p.sinta_matched_journal_count.toLocaleString()}
+                      </td>
+                    )}
 
-                    <td style={{ padding: '10px 12px', textAlign: 'center' }}>
-                      <span
-                        className="badge"
-                        style={{
-                          fontSize: '11px',
-                          backgroundColor: p.identity_status === 'confirmed_same_publisher' ? 'rgba(46, 125, 50, 0.12)' : 'rgba(2, 136, 209, 0.12)',
-                          color: p.identity_status === 'confirmed_same_publisher' ? '#2e7d32' : '#0288d1',
-                          fontWeight: 600,
-                        }}
-                      >
-                        {p.identity_status === 'confirmed_same_publisher' ? 'Confirmed Same' : 'Exact Entity'}
-                      </span>
-                    </td>
+                    {showIdentityStatus && (
+                      <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                        <span
+                          className="badge"
+                          style={{
+                            fontSize: '11px',
+                            backgroundColor: p.identity_status === 'confirmed_same_publisher' ? 'rgba(46, 125, 50, 0.12)' : 'rgba(2, 136, 209, 0.12)',
+                            color: p.identity_status === 'confirmed_same_publisher' ? '#2e7d32' : '#0288d1',
+                            fontWeight: 600,
+                          }}
+                        >
+                          {p.identity_status === 'confirmed_same_publisher' ? 'Confirmed Same' : 'Exact Entity'}
+                        </span>
+                      </td>
+                    )}
 
                     <td style={{ padding: '10px 12px', textAlign: 'center' }}>
                       <button
@@ -926,11 +984,31 @@ export const PublisherAnalysisPage: React.FC<PublisherAnalysisPageProps> = ({
         </div>
 
         {/* Pagination Toolbar */}
-        {totalPages > 1 && (
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'var(--space-2)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-2)', marginTop: 'var(--space-2)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
             <span style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)' }}>
-              Page <strong>{currentPage}</strong> of <strong>{totalPages}</strong>
+              Page <strong>{currentPage}</strong> of <strong>{totalPages}</strong> ({sortedPublishers.length} total publishers)
             </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <label htmlFor="pub-page-size" style={{ fontSize: '11px', color: 'var(--dark-grey)', fontWeight: 600 }}>
+                Rows per page:
+              </label>
+              <select
+                id="pub-page-size"
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                style={{ padding: '2px 6px', fontSize: '11px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--neutral-border)' }}
+              >
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+            </div>
+          </div>
+          {totalPages > 1 && (
             <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
               <button
                 type="button"
@@ -951,8 +1029,8 @@ export const PublisherAnalysisPage: React.FC<PublisherAnalysisPageProps> = ({
                 Next
               </button>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </section>
     </div>
   );

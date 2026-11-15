@@ -48,6 +48,7 @@ test('WP2 Shell: Design tokens, fonts, and accessibility standards', async (t) =
       'withdrawn',
       'sinta',
       'explorer',
+      'publishers',
       'quality',
     ];
 
@@ -57,6 +58,15 @@ test('WP2 Shell: Design tokens, fonts, and accessibility standards', async (t) =
         `Route '${route}' must be handled in App router`
       );
     }
+  });
+
+  await t.test('Primary navigation ordering adheres to strict master prompt order', () => {
+    const headerPath = path.join(rootDir, 'src/components/layout/Header.tsx');
+    const headerContent = fs.readFileSync(headerPath, 'utf8');
+
+    // Assert that 7 is Publisher Analysis and 8 is Data Quality
+    assert.match(headerContent, /\{\s*id:\s*'publishers',\s*label:\s*'7\.\s*Publisher Analysis'\s*\}/);
+    assert.match(headerContent, /\{\s*id:\s*'quality',\s*label:\s*'8\.\s*Data Quality'\s*\}/);
   });
 
   await t.test('Privacy enforcement: No internal admin routes in source code or synthetic data', () => {

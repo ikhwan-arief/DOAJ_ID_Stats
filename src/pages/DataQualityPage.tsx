@@ -469,7 +469,7 @@ export const DataQualityPage: React.FC = () => {
             letterSpacing: '0.05em',
           }}
         >
-          Route 7 • Integrity & Provenance
+          Observatory Dashboard • Route 8
         </span>
         <h2 style={{ marginTop: 'var(--space-1)', marginBottom: 'var(--space-2)' }}>
           Data Quality, Reconciliation Methodology & Privacy Disclosures
