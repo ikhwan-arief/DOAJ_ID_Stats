@@ -17,10 +17,29 @@ test('WP4 Production Integration: Real Validated Outputs & Quality Gates', async
     assert.equal(summary.source_record_counts.rejected, 8898, 'Rejected source rows must be 8,898');
     assert.equal(summary.source_record_counts.withdrawn, 570, 'Withdrawn source rows must be 570');
     assert.equal(summary.source_record_counts.sinta, 16620, 'SINTA source rows must be 16,620');
+    assert.equal(summary.source_record_counts.doaj_current_indonesia, 2733, 'Current DOAJ Indonesia records must be 2,733');
     assert.equal(summary.intersection_universe_count, 18370, 'Intersection universe must be 18,370');
     assert.equal(summary.repeat_record_journals, 1917, 'Repeat record journals must be 1,917');
     assert.equal(summary.repeat_date_journals, 1894, 'Repeat date journals must be 1,894');
     assert.equal(summary.repeat_year_journals, 1568, 'Repeat year journals must be 1,568');
+  });
+
+  await t.test('Current DOAJ dataset fact_doaj_current_public.json exists and reconciles', () => {
+    const currentPath = path.join(rootDir, 'public/data/v1/fact_doaj_current_public.json');
+    assert.ok(fs.existsSync(currentPath), 'fact_doaj_current_public.json must exist in public/data/v1');
+    const records = JSON.parse(fs.readFileSync(currentPath, 'utf8'));
+    assert.equal(records.length, 2733, 'fact_doaj_current must contain exactly 2,733 records');
+
+    const summaryPath = path.join(rootDir, 'public/data/v1/summary_public.json');
+    const summary = JSON.parse(fs.readFileSync(summaryPath, 'utf8'));
+    const cur = summary.current_doaj_summary;
+    assert.ok(cur, 'current_doaj_summary must be present in summary');
+    assert.equal(cur.indonesia_source_records, 2733);
+    assert.equal(cur.unique_resolved_journals, 2731);
+    assert.equal(cur.sinta_matched_journals, 2500);
+    assert.equal(cur.doaj_only_journals, 231);
+    assert.equal(cur.sinta_only_journals, 14120);
+    assert.equal(cur.total_two_set_universe, 16851);
   });
 
   await t.test('All seven Venn regions add up to exact universe count', () => {

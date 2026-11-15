@@ -94,7 +94,7 @@ class DataEngine:
         contracts = {contract.dataset: contract for contract in SOURCE_CONTRACTS}
         rows = {
             name: list(iter_lossless_rows(self.raw_dir, contracts[name]))
-            for name in ("rejected", "withdrawn", "sinta")
+            for name in ("rejected", "withdrawn", "sinta", "doaj_current")
         }
 
         sinta_signature_to_id: dict[tuple[str, ...], str] = {}
@@ -159,6 +159,13 @@ class DataEngine:
                 journal_id = f"doaj-row:{row['source_record_id'].replace(':', '-') }"
             return journal_id, strict, extended, unresolved
 
+        # Filter DOAJ Current to publisher country Indonesia
+        doaj_current_id_rows = [
+            row for row in rows["doaj_current"]
+            if (row["source_row"].get("Country of publisher") or "").strip().lower() == "indonesia"
+        ]
+
+        # Reconcile historical rejected & withdrawn
         for dataset in ("rejected", "withdrawn"):
             for row in rows[dataset]:
                 source = row["source_row"]
@@ -220,6 +227,57 @@ class DataEngine:
                     )
                     fact_withdrawn.append(base)
 
+        # Reconcile DOAJ Current (Indonesia)
+        fact_doaj_current = []
+        current_resolved_jids: set[str] = set()
+        current_unresolved_jids: set[str] = set()
+        current_journal_details: dict[str, dict[str, Any]] = {}
+
+        for row in doaj_current_id_rows:
+            source = row["source_row"]
+            journal_id, strict, extended, unresolved = reconcile_doaj(row)
+            title = _safe_text(source.get("Journal title"))
+            journal_titles.setdefault(journal_id, title)
+            doaj_profile = _optional_url(source.get("URL in DOAJ"), doaj_profile=True)
+            publisher = _safe_text(source.get("Publisher"))
+
+            if unresolved:
+                current_unresolved_jids.add(journal_id)
+            else:
+                current_resolved_jids.add(journal_id)
+                current_journal_details.setdefault(
+                    journal_id,
+                    {"doaj_profile_url": doaj_profile, "publisher": publisher},
+                )
+
+            record = {
+                "source_dataset": "doaj_current",
+                "source_record_id": row["source_record_id"],
+                "journal_id": journal_id,
+                "identity_status": "unresolved" if unresolved else "resolved",
+                "journal_title": title,
+                "journal_url": _optional_url(source.get("Journal URL")),
+                "doaj_profile_url": doaj_profile,
+                "p_issn_raw": row["p_issn_raw"],
+                "e_issn_raw": row["e_issn_raw"],
+                "p_issn_normalized": row["p_issn_normalized"],
+                "e_issn_normalized": row["e_issn_normalized"],
+                "p_issn_quality": row["p_issn_quality"],
+                "e_issn_quality": row["e_issn_quality"],
+                "publisher": publisher,
+                "country_of_publisher": _safe_text(source.get("Country of publisher")),
+                "subjects": [s.strip() for s in (source.get("Subjects") or "").split("|") if s.strip()],
+                "added_on_raw": _safe_text(source.get("Added on Date")),
+                "last_updated_raw": _safe_text(source.get("Last updated Date")),
+                "sinta_match_status": strict.status,
+                "sinta_match_method": strict.method,
+                "extended_match_status": extended.status,
+                "extended_match_method": extended.method,
+                "extended_journal_id": extended.journal_id,
+                "sinta_rank": "ambiguous" if strict.status == "ambiguous" else "unmatched",
+            }
+            fact_doaj_current.append(record)
+
         sinta_records, journal_ranks = [], defaultdict(set)
         for row in rows["sinta"]:
             source = row["source_row"]
@@ -254,11 +312,21 @@ class DataEngine:
             journal_id: (next(iter(ranks)) if len(ranks) == 1 else "ambiguous")
             for journal_id, ranks in journal_ranks.items()
         }
-        for record in fact_rejected + fact_withdrawn:
-            if record["strict_match_status"] == "matched":
+        for record in fact_rejected + fact_withdrawn + fact_doaj_current:
+            if record.get("strict_match_status") == "matched" or record.get("sinta_match_status") == "matched":
                 record["sinta_rank"] = resolved_rank.get(record["journal_id"], "NA")
-            if record["extended_match_status"] == "matched" and record["extended_journal_id"]:
+            if record.get("extended_match_status") == "matched" and record.get("extended_journal_id"):
                 record["extended_sinta_rank"] = resolved_rank.get(record["extended_journal_id"], "NA")
+
+        # Assign current DOAJ status to fact_rejected and fact_withdrawn records
+        for record in fact_rejected + fact_withdrawn:
+            jid = record["journal_id"]
+            if record["identity_status"] == "unresolved" or jid in current_unresolved_jids:
+                record["current_doaj_status"] = "requires_review"
+            elif jid in current_resolved_jids:
+                record["current_doaj_status"] = "currently_indexed"
+            else:
+                record["current_doaj_status"] = "not_found"
 
         histories_by_journal: dict[str, list[dict[str, Any]]] = defaultdict(list)
         for record in fact_rejected:
@@ -306,8 +374,36 @@ class DataEngine:
             region = "".join(letter for letter, included in zip("RWS", (in_r, in_w, in_s)) if included)
             regions.append({"region": region, "R": in_r, "W": in_w, "S": in_s, "count": len(members), "journal_ids": members})
 
+        # 2-set Current DOAJ x SINTA Venn
+        both_ds = current_resolved_jids & s_set
+        doaj_only_d = current_resolved_jids - s_set
+        sinta_only_s = s_set - current_resolved_jids
+        current_sinta_venn = [
+            {"region": "D", "in_doaj": True, "in_sinta": False, "count": len(doaj_only_d), "journal_ids": sorted(doaj_only_d)},
+            {"region": "S", "in_doaj": False, "in_sinta": True, "count": len(sinta_only_s), "journal_ids": sorted(sinta_only_s)},
+            {"region": "DS", "in_doaj": True, "in_sinta": True, "count": len(both_ds), "journal_ids": sorted(both_ds)},
+        ]
+
+        # SINTA rank coverage in current DOAJ
         rank_source_counts = Counter(record["sinta_rank"] for record in sinta_records)
         rank_journal_counts = Counter(resolved_rank.values())
+        current_doaj_rank_counts = Counter(resolved_rank.get(jid, "unmatched") for jid in both_ds)
+        current_doaj_coverage_pct = {
+            rank: round((current_doaj_rank_counts[rank] / rank_journal_counts[rank] * 100), 2)
+            if rank_journal_counts.get(rank, 0) > 0 else 0.0
+            for rank in RANKS
+        }
+
+        # Status counts for rejected and withdrawn journals
+        rejected_current_status_counts = Counter(
+            "requires_review" if jid in current_unresolved_jids else ("currently_indexed" if jid in current_resolved_jids else "not_found")
+            for jid in r_set
+        )
+        withdrawn_current_status_counts = Counter(
+            "requires_review" if jid in current_unresolved_jids else ("currently_indexed" if jid in current_resolved_jids else "not_found")
+            for jid in w_set
+        )
+
         rejected_rank_counts = Counter(record["sinta_rank"] for record in fact_rejected)
         rejected_journal_rank_counts = Counter(
             resolved_rank[journal_id]
@@ -317,25 +413,49 @@ class DataEngine:
         repeat_histogram = Counter(history["source_record_count"] for history in histories if history["identity_status"] == "resolved")
         summary = {
             "schema_version": SCHEMA_VERSION,
-            "as_of": {"sinta_snapshot": "2026-11-15", "doaj_export_utc": "2026-11-14"},
-            "source_record_counts": {name: len(value) for name, value in rows.items()},
+            "as_of": {
+                "sinta_snapshot": "2026-11-15",
+                "doaj_export_utc": "2026-11-14",
+                "doaj_current_snapshot": "2026-11-15",
+            },
+            "source_record_counts": {
+                "rejected": len(rows["rejected"]),
+                "withdrawn": len(rows["withdrawn"]),
+                "sinta": len(rows["sinta"]),
+                "doaj_current_total": len(rows["doaj_current"]),
+                "doaj_current_indonesia": len(doaj_current_id_rows),
+            },
             "identity_counts": {
                 "rejected_resolved_journals": len(r_set),
                 "withdrawn_resolved_journals": len(w_set),
                 "sinta_journals": len(s_set),
+                "current_doaj_unique_journals": len(current_resolved_jids),
                 "unresolved_doaj_source_records": sum(1 for audit in audits if audit["strict_status"] == "ambiguous"),
+                "unresolved_current_doaj_records": len(current_unresolved_jids),
+            },
+            "current_doaj_summary": {
+                "total_source_records": len(rows["doaj_current"]),
+                "indonesia_source_records": len(doaj_current_id_rows),
+                "unique_resolved_journals": len(current_resolved_jids),
+                "sinta_matched_journals": len(both_ds),
+                "doaj_only_journals": len(doaj_only_d),
+                "sinta_only_journals": len(sinta_only_s),
+                "total_two_set_universe": len(both_ds | doaj_only_d | sinta_only_s),
+                "ambiguous_records": len(current_unresolved_jids),
+                "rank_coverage_counts": {rank: current_doaj_rank_counts.get(rank, 0) for rank in RANKS},
+                "rank_coverage_percentages": current_doaj_coverage_pct,
+                "rejected_journals_current_status": dict(rejected_current_status_counts),
+                "withdrawn_journals_current_status": dict(withdrawn_current_status_counts),
             },
             "strict_match_status_counts": dict(sorted(Counter(audit["strict_status"] for audit in audits).items())),
             "extended_match_status_counts": dict(sorted(Counter(audit["extended_status"] for audit in audits).items())),
             "sinta_rank_source_record_counts": {rank: rank_source_counts.get(rank, 0) for rank in RANKS},
-            "sinta_rank_unique_journal_counts": {rank: rank_journal_counts.get(rank, 0) for rank in (*RANKS, "ambiguous")},
+            "sinta_rank_unique_journal_counts": {rank: rank_journal_counts.get(rank, 0) for rank in RANKS},
             "rejected_rank_source_record_counts": {
-                rank: rejected_rank_counts.get(rank, 0)
-                for rank in (*RANKS, "unmatched", "ambiguous")
+                rank: rejected_rank_counts.get(rank, 0) for rank in (*RANKS, "unmatched", "ambiguous")
             },
             "rejected_rank_unique_journal_counts": {
-                rank: rejected_journal_rank_counts.get(rank, 0)
-                for rank in (*RANKS, "ambiguous")
+                rank: rejected_journal_rank_counts.get(rank, 0) for rank in (*RANKS, "ambiguous")
             },
             "repeat_record_histogram": {str(key): repeat_histogram[key] for key in sorted(repeat_histogram)},
             "repeat_record_journals": sum(history["source_record_count"] >= 2 for history in histories if history["identity_status"] == "resolved"),
@@ -345,20 +465,32 @@ class DataEngine:
             "intersection_universe_count": len(r_set | w_set | s_set),
         }
 
-        dim_journals = [
-            {
-                "journal_id": journal_id,
-                "display_title": journal_titles.get(journal_id),
-                "in_rejected": journal_id in r_set,
-                "in_withdrawn": journal_id in w_set,
-                "in_sinta": journal_id in s_set,
-                "sinta_rank": resolved_rank.get(journal_id, "unmatched"),
-            }
-            for journal_id in sorted((r_set | w_set | s_set) | unresolved_ids)
-        ]
+        dim_journals = []
+        all_jids = sorted((r_set | w_set | s_set | current_resolved_jids) | unresolved_ids | current_unresolved_jids)
+        for journal_id in all_jids:
+            cur_status = (
+                "requires_review" if journal_id in current_unresolved_jids
+                else ("currently_indexed" if journal_id in current_resolved_jids else "not_found")
+            )
+            details = current_journal_details.get(journal_id, {})
+            dim_journals.append(
+                {
+                    "journal_id": journal_id,
+                    "display_title": journal_titles.get(journal_id),
+                    "in_rejected": journal_id in r_set,
+                    "in_withdrawn": journal_id in w_set,
+                    "in_sinta": journal_id in s_set,
+                    "in_current_doaj": journal_id in current_resolved_jids,
+                    "sinta_rank": resolved_rank.get(journal_id, "unmatched"),
+                    "current_doaj_status": cur_status,
+                    "current_doaj_profile_url": details.get("doaj_profile_url"),
+                    "current_doaj_publisher": details.get("publisher"),
+                }
+            )
+
         placeholder_ids = [
             record["source_record_id"]
-            for record in fact_rejected + fact_withdrawn + sinta_records
+            for record in fact_rejected + fact_withdrawn + sinta_records + fact_doaj_current
             if "placeholder" in {record["p_issn_quality"], record["e_issn_quality"]}
         ]
         cross_medium_ids = [
@@ -381,6 +513,10 @@ class DataEngine:
                 "same_day_rejected_records": len(repeated_timestamp_ids),
                 "strict_ambiguous_records": sum(audit["strict_status"] == "ambiguous" for audit in audits),
                 "extended_ambiguous_records": sum(audit["extended_status"] == "ambiguous" for audit in audits),
+                "current_doaj_total_source_records": len(rows["doaj_current"]),
+                "current_doaj_indonesia_records": len(doaj_current_id_rows),
+                "current_doaj_non_indonesia_filtered": len(rows["doaj_current"]) - len(doaj_current_id_rows),
+                "current_doaj_ambiguous_records": len(current_unresolved_jids),
             },
             "deterministic_review_samples": {
                 "strict_matches": [audit["source_record_id"] for audit in audits if audit["strict_status"] == "matched"][:10],
@@ -393,16 +529,26 @@ class DataEngine:
                 "Cross-medium matches are excluded from strict headline metrics.",
                 "Placeholder-only ISSNs never establish journal identity.",
                 "SINTA ranks describe the 2026-11-15 snapshot, not historical rank.",
+                "Current DOAJ snapshot describes indexing status on 2026-11-15.",
             ],
         }
         return {
             "fact_rejected_public.json": fact_rejected,
             "fact_withdrawn_public.json": fact_withdrawn,
+            "fact_doaj_current_public.json": fact_doaj_current,
             "sinta_snapshot_public.json": sinta_records,
             "dim_journals_public.json": dim_journals,
             "match_audit_public.json": audits,
             "rejection_history_public.json": histories,
-            "intersections_public.json": {"venn_regions": regions, "upset_aggregates": regions, "unresolved_journal_ids": sorted(unresolved_ids)},
+            "intersections_public.json": {
+                "venn_regions": regions,
+                "upset_aggregates": regions,
+                "unresolved_journal_ids": sorted(unresolved_ids),
+                "current_sinta_venn": [
+                    {k: v for k, v in item.items() if k != "journal_ids"}
+                    for item in current_sinta_venn
+                ],
+            },
             "data_quality_public.json": data_quality,
             "summary_public.json": summary,
             "_source_metadata": [item.public_dict() for item in metadata],
@@ -421,7 +567,11 @@ def write_exports(payloads: dict[str, Any], output_dir: Path, etl_commit: str) -
     manifest = {
         "schema_version": SCHEMA_VERSION,
         "etl_commit": etl_commit,
-        "source_dates": {"doaj_export_utc": "2026-11-14", "sinta_snapshot": "2026-11-15"},
+        "source_dates": {
+            "doaj_export_utc": "2026-11-14",
+            "sinta_snapshot": "2026-11-15",
+            "doaj_current_snapshot": "2026-11-15",
+        },
         "sources": source_metadata,
         "outputs": hashes,
     }

@@ -5,6 +5,7 @@ import {
   IntersectionsPublic,
   FactRejectedRecord,
   FactWithdrawnRecord,
+  FactDoajCurrentRecord,
   RejectionHistoryRecord,
   DimJournalRecord,
   SintaSnapshotRecord,
@@ -15,6 +16,7 @@ let cachedSummary: SummaryPublic | null = null;
 let cachedIntersections: IntersectionsPublic | null = null;
 let cachedRejected: FactRejectedRecord[] | null = null;
 let cachedWithdrawn: FactWithdrawnRecord[] | null = null;
+let cachedDoajCurrent: FactDoajCurrentRecord[] | null = null;
 let cachedHistory: RejectionHistoryRecord[] | null = null;
 let cachedDimJournals: DimJournalRecord[] | null = null;
 let cachedSinta: SintaSnapshotRecord[] | null = null;
@@ -54,6 +56,12 @@ export async function loadFactWithdrawn(): Promise<FactWithdrawnRecord[]> {
   if (cachedWithdrawn) return cachedWithdrawn;
   cachedWithdrawn = await fetchPublicJson<FactWithdrawnRecord[]>('fact_withdrawn_public.json');
   return cachedWithdrawn;
+}
+
+export async function loadFactDoajCurrent(): Promise<FactDoajCurrentRecord[]> {
+  if (cachedDoajCurrent) return cachedDoajCurrent;
+  cachedDoajCurrent = await fetchPublicJson<FactDoajCurrentRecord[]>('fact_doaj_current_public.json');
+  return cachedDoajCurrent;
 }
 
 export async function loadRejectionHistory(): Promise<RejectionHistoryRecord[]> {

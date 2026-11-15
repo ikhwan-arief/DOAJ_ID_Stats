@@ -56,13 +56,17 @@ def verify_kpis(payloads: dict[str, object]) -> None:
     rejected = payloads["fact_rejected_public.json"]
     withdrawn = payloads["fact_withdrawn_public.json"]
     sinta = payloads["sinta_snapshot_public.json"]
+    doaj_current = payloads["fact_doaj_current_public.json"]
     histories = payloads["rejection_history_public.json"]
     summary = payloads["summary_public.json"]
     intersections = payloads["intersections_public.json"]
 
-    require(summary["source_record_counts"] == {
-        "rejected": len(rejected), "withdrawn": len(withdrawn), "sinta": len(sinta)
-    }, "source-record KPI mismatch")
+    require(summary["source_record_counts"]["rejected"] == len(rejected), "rejected source-record KPI mismatch")
+    require(summary["source_record_counts"]["withdrawn"] == len(withdrawn), "withdrawn source-record KPI mismatch")
+    require(summary["source_record_counts"]["sinta"] == len(sinta), "sinta source-record KPI mismatch")
+    require(summary["source_record_counts"]["doaj_current_indonesia"] == len(doaj_current), "doaj_current source-record KPI mismatch")
+    require(len(doaj_current) == 2733, "doaj_current indonesia count must be 2733")
+
     require(summary["strict_match_status_counts"] == dict(sorted(Counter(
         record["strict_match_status"] for record in rejected + withdrawn
     ).items())), "strict match KPI mismatch")
@@ -112,6 +116,16 @@ def verify_kpis(payloads: dict[str, object]) -> None:
         }[key]
         require(marginal == expected, f"intersection marginal mismatch: {key}")
 
+    # Current DOAJ x SINTA coverage reconciliation
+    cur = summary["current_doaj_summary"]
+    require(cur["total_source_records"] == 23733, "doaj_current total source records mismatch")
+    require(cur["indonesia_source_records"] == 2733, "doaj_current indonesia records mismatch")
+    require(cur["unique_resolved_journals"] == 2731, "doaj_current unique resolved journals mismatch")
+    require(cur["sinta_matched_journals"] == 2500, "doaj_current sinta matched mismatch")
+    require(cur["doaj_only_journals"] == 231, "doaj_current doaj only mismatch")
+    require(cur["sinta_only_journals"] == 14120, "doaj_current sinta only mismatch")
+    require(cur["total_two_set_universe"] == 16851, "doaj_current 2-set universe mismatch")
+
 
 def verify_filter_partitions(payloads: dict[str, object]) -> None:
     for filename, year_field in (
@@ -143,6 +157,7 @@ def main() -> int:
         "Integration verification passed: "
         f"{len(payloads['fact_rejected_public.json'])} rejected, "
         f"{len(payloads['fact_withdrawn_public.json'])} withdrawn, "
+        f"{len(payloads['fact_doaj_current_public.json'])} current DOAJ (Indonesia), "
         f"{len(payloads['sinta_snapshot_public.json'])} SINTA rows; "
         f"{reinstated} recorded reinstatement date"
     )

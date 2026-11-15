@@ -1,4 +1,4 @@
-"""WP3 integration invariants over the authorized local sources.
+"""WP3 and Unified Production Upgrade integration invariants over authorized local sources.
 
 Developed by Ikhwan Arief (ikhwan[at]unand.ac.id).
 Copyright (c) 2026 Ikhwan Arief. Copyright held by the application developer.
@@ -23,7 +23,13 @@ class EngineIntegrationTests(unittest.TestCase):
         self.assertEqual(len(self.outputs["fact_rejected_public.json"]), 8_898)
         self.assertEqual(len(self.outputs["fact_withdrawn_public.json"]), 570)
         self.assertEqual(len(self.outputs["sinta_snapshot_public.json"]), 16_620)
-        for filename in ("fact_rejected_public.json", "fact_withdrawn_public.json", "sinta_snapshot_public.json"):
+        self.assertEqual(len(self.outputs["fact_doaj_current_public.json"]), 2_733)
+        for filename in (
+            "fact_rejected_public.json",
+            "fact_withdrawn_public.json",
+            "sinta_snapshot_public.json",
+            "fact_doaj_current_public.json",
+        ):
             records = self.outputs[filename]
             self.assertEqual(len(records), len({record["source_record_id"] for record in records}))
 
@@ -66,6 +72,19 @@ class EngineIntegrationTests(unittest.TestCase):
         self.assertEqual(regions, data["upset_aggregates"])
         for region in regions:
             self.assertEqual(region["count"], len(region["journal_ids"]))
+
+    def test_current_doaj_summary_and_coverage_reconcile(self) -> None:
+        summary = self.outputs["summary_public.json"]
+        cur = summary["current_doaj_summary"]
+        self.assertEqual(cur["total_source_records"], 23_733)
+        self.assertEqual(cur["indonesia_source_records"], 2_733)
+        self.assertEqual(cur["unique_resolved_journals"], 2_731)
+        self.assertEqual(cur["sinta_matched_journals"], 2_500)
+        self.assertEqual(cur["doaj_only_journals"], 231)
+        self.assertEqual(cur["sinta_only_journals"], 14_120)
+        self.assertEqual(cur["total_two_set_universe"], 16_851)
+        self.assertEqual(sum(cur["rank_coverage_counts"].values()), 2_500)
+        self.assertAlmostEqual(cur["rank_coverage_percentages"]["S1"], 62.60, places=1)
 
     def test_repeat_histogram_and_history_reconcile(self) -> None:
         histories = [

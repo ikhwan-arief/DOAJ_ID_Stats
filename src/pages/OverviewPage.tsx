@@ -4,6 +4,7 @@ import { loadSummary, loadFactRejected, loadFactWithdrawn, loadDimJournals } fro
 import { SummaryPublic, GlobalFilterState, FactRejectedRecord, FactWithdrawnRecord, DimJournalRecord } from '../types';
 import { UpsetVennChart } from '../components/charts/UpsetVennChart';
 import { DeterministicVennDiagram } from '../components/charts/DeterministicVennDiagram';
+import { CurrentSintaVennDiagram } from '../components/charts/CurrentSintaVennDiagram';
 import { BaseEChart } from '../components/charts/BaseEChart';
 import { SortableHeader, useSortableData } from '../components/common/SortableTable';
 import * as echarts from '../lib/echarts';
@@ -378,6 +379,43 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({ filters, onNavigateT
           />
         </div>
       </div>
+
+      {/* Current DOAJ x SINTA Overlap Section */}
+      {summary?.current_doaj_summary && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))', gap: 'var(--space-4)' }}>
+          <CurrentSintaVennDiagram
+            doajOnlyCount={summary.current_doaj_summary.doaj_only_journals}
+            sintaOnlyCount={summary.current_doaj_summary.sinta_only_journals}
+            bothCount={summary.current_doaj_summary.sinta_matched_journals}
+            totalUniverse={summary.current_doaj_summary.total_two_set_universe}
+          />
+          <div className="card" style={{ padding: 'var(--space-4)', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 'var(--space-3)' }}>
+            <h4 style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--text-md)', margin: 0 }}>
+              Current DOAJ Indexing Benchmark (Nov 15, 2026)
+            </h4>
+            <p style={{ fontSize: 'var(--text-sm)', color: 'var(--dark-grey)', margin: 0 }}>
+              Out of <strong>{summary.current_doaj_summary.indonesia_source_records.toLocaleString()}</strong> active Indonesian journal records
+              in DOAJ ({summary.current_doaj_summary.unique_resolved_journals.toLocaleString()} unique resolved identities),
+              <strong> {summary.current_doaj_summary.sinta_matched_journals.toLocaleString()} ({(summary.current_doaj_summary.sinta_matched_journals / summary.current_doaj_summary.unique_resolved_journals * 100).toFixed(1)}%)</strong> are
+              cross-matched to national SINTA accreditations.
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-2)', marginTop: 'var(--space-1)' }}>
+              <div style={{ padding: 'var(--space-2) var(--space-3)', backgroundColor: 'var(--light-grey)', borderRadius: 'var(--radius-sm)' }}>
+                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)' }}>Historical Rejections Currently Indexed</div>
+                <div style={{ fontWeight: 700, fontSize: 'var(--text-base)', color: 'var(--dark-green)' }}>
+                  {summary.current_doaj_summary.rejected_journals_current_status.currently_indexed?.toLocaleString() || 508} journals
+                </div>
+              </div>
+              <div style={{ padding: 'var(--space-2) var(--space-3)', backgroundColor: 'var(--light-grey)', borderRadius: 'var(--radius-sm)' }}>
+                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)' }}>Historical Withdrawals Currently Indexed</div>
+                <div style={{ fontWeight: 700, fontSize: 'var(--text-base)', color: 'var(--dark-green)' }}>
+                  {summary.current_doaj_summary.withdrawn_journals_current_status.currently_indexed?.toLocaleString() || 23} journals
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Visual Analytics Row 2: Annual Trends & Matching Status Distribution */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))', gap: 'var(--space-4)' }}>

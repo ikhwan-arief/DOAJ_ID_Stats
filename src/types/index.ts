@@ -1,6 +1,8 @@
-// Production Public-Safe Contracts and Types (WP4)
+// Production Public-Safe Contracts and Types (WP4 + Unified Upgrade)
 
 export type SintaRank = 'S1' | 'S2' | 'S3' | 'S4' | 'S5' | 'S6' | 'NA' | 'unmatched' | 'ambiguous';
+
+export type CurrentDoajStatus = 'currently_indexed' | 'not_found' | 'requires_review';
 
 export type IssnQuality =
   | 'checksum_valid'
@@ -18,6 +20,22 @@ export interface GlobalFilterState {
   matchingMode: 'strict' | 'extended';
   yearRange: [number, number]; // [2022, 2026]
   metricView: 'records' | 'journals'; // Records vs Unique Reconciled Journals
+  currentDoajStatus?: 'all' | CurrentDoajStatus;
+}
+
+export interface CurrentDoajSummary {
+  total_source_records: number;
+  indonesia_source_records: number;
+  unique_resolved_journals: number;
+  sinta_matched_journals: number;
+  doaj_only_journals: number;
+  sinta_only_journals: number;
+  total_two_set_universe: number;
+  ambiguous_records: number;
+  rank_coverage_counts: Record<string, number>;
+  rank_coverage_percentages: Record<string, number>;
+  rejected_journals_current_status: Record<string, number>;
+  withdrawn_journals_current_status: Record<string, number>;
 }
 
 export interface SummaryPublic {
@@ -25,18 +43,24 @@ export interface SummaryPublic {
   as_of: {
     doaj_export_utc: string;
     sinta_snapshot: string;
+    doaj_current_snapshot?: string;
   };
   source_record_counts: {
     rejected: number;
     withdrawn: number;
     sinta: number;
+    doaj_current_total?: number;
+    doaj_current_indonesia?: number;
   };
   identity_counts: {
     rejected_resolved_journals: number;
     withdrawn_resolved_journals: number;
     sinta_journals: number;
+    current_doaj_unique_journals?: number;
     unresolved_doaj_source_records: number;
+    unresolved_current_doaj_records?: number;
   };
+  current_doaj_summary?: CurrentDoajSummary;
   intersection_universe_count: number;
   strict_match_status_counts: {
     matched: number;
@@ -88,6 +112,7 @@ export interface FactRejectedRecord {
   extended_sinta_rank: SintaRank;
   identity_status: 'resolved' | 'unresolved';
   sinta_rank: SintaRank;
+  current_doaj_status?: CurrentDoajStatus;
 }
 
 export interface FactWithdrawnRecord {
@@ -117,6 +142,34 @@ export interface FactWithdrawnRecord {
   extended_sinta_rank: SintaRank;
   identity_status: 'resolved' | 'unresolved';
   sinta_rank: SintaRank;
+  current_doaj_status?: CurrentDoajStatus;
+}
+
+export interface FactDoajCurrentRecord {
+  source_dataset: 'doaj_current';
+  source_record_id: string;
+  journal_id: string;
+  identity_status: 'resolved' | 'unresolved';
+  journal_title: string;
+  journal_url?: string | null;
+  doaj_profile_url?: string | null;
+  p_issn_raw: string;
+  e_issn_raw: string;
+  p_issn_normalized: string | null;
+  e_issn_normalized: string | null;
+  p_issn_quality: IssnQuality;
+  e_issn_quality: IssnQuality;
+  publisher?: string | null;
+  country_of_publisher?: string | null;
+  subjects?: string[];
+  added_on_raw?: string | null;
+  last_updated_raw?: string | null;
+  sinta_match_status: 'matched' | 'unmatched' | 'ambiguous';
+  sinta_match_method: string | null;
+  extended_match_status: 'matched' | 'unmatched' | 'ambiguous';
+  extended_match_method: string | null;
+  extended_journal_id: string | null;
+  sinta_rank: SintaRank;
 }
 
 export interface RejectionHistoryRecord {
@@ -138,6 +191,10 @@ export interface DimJournalRecord {
   in_rejected: boolean;
   in_withdrawn: boolean;
   in_sinta: boolean;
+  in_current_doaj?: boolean;
+  current_doaj_status?: CurrentDoajStatus;
+  current_doaj_profile_url?: string | null;
+  current_doaj_publisher?: string | null;
 }
 
 export interface SintaSnapshotRecord {
@@ -161,6 +218,13 @@ export interface SintaSnapshotRecord {
 }
 
 export interface IntersectionsPublic {
+  venn_regions?: Array<{
+    region: string;
+    R: boolean;
+    W: boolean;
+    S: boolean;
+    count: number;
+  }>;
   upset_aggregates: Array<{
     region: string;
     R: boolean;
@@ -170,6 +234,12 @@ export interface IntersectionsPublic {
     journal_ids: string[];
   }>;
   unresolved_journal_ids: string[];
+  current_sinta_venn?: Array<{
+    region: 'D' | 'S' | 'DS';
+    in_doaj: boolean;
+    in_sinta: boolean;
+    count: number;
+  }>;
 }
 
 export interface DataQualityPublic {
@@ -180,6 +250,10 @@ export interface DataQualityPublic {
     extended_ambiguous_records: number;
     same_day_rejected_records: number;
     cross_medium_candidate_records: number;
+    current_doaj_total_source_records?: number;
+    current_doaj_indonesia_records?: number;
+    current_doaj_non_indonesia_filtered?: number;
+    current_doaj_ambiguous_records?: number;
   };
   deterministic_review_samples: {
     placeholder_records: string[];

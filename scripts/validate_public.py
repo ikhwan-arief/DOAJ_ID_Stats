@@ -20,7 +20,7 @@ from observatory.privacy import EMAIL_PATTERN
 INTERNAL_ROUTE = re.compile(r"(?i)/" + "admin" + "/" + "application" + "/")
 INTERNAL_URL = re.compile(r"(?i)https?://[^\s\"']+" + "/" + "admin" + "/" + "application" + "/")
 RAW_NAME = re.compile(
-    r"(?i)(ID_-_(?:Rejected_applications|Last_Withdrawn).*\.csv|sinta_database_final_.*\.csv)"
+    r"(?i)(ID_-_(?:Rejected_applications|Last_Withdrawn).*\.csv|sinta_database_final_.*\.csv|doaj_journalcsv_.*\.csv)"
 )
 TEXT_SUFFIXES = {".csv", ".html", ".js", ".json", ".log", ".md", ".txt", ".xml"}
 FORBIDDEN_FIELD_NAMES = ("Owner", "Account Name", "Account Email")

@@ -404,3 +404,40 @@ Privacy/data review:
 
 Next owner + smallest next action:
 - **Codex**: Independent review and validation of commit `1e27d7d`, followed by production redeployment to GitHub Pages once authorization is complete.
+
+
+## 2026-11-15 — Unified production upgrade: Current DOAJ indexing integration and Dossier redesign completed
+
+Date/time: 2026-11-15 (WIB, UTC+7)
+
+Agent / package: Antigravity / Unified Production Upgrade Lead
+
+Git branch: `main`
+
+Changed files:
+- `observatory/contracts.py`: Added `doaj_current` source contract (23,733 records, 52 columns) and public allowlist.
+- `observatory/engine.py`: Integrated authoritative 4th source dataset `doaj_journalcsv_20261115_0020_utf8.csv`; filtered Country of publisher == Indonesia (2,733 records, 2,731 resolved unique identities, 1 ambiguous record); cross-matched against SINTA (2,500 matched, 231 DOAJ-only, 14,120 SINTA-only; total 2-set universe: 16,851); assigned current DOAJ status (`currently_indexed`, `not_found`, `requires_review`) across rejected, withdrawn, and resolved dimensions.
+- `scripts/validate_public.py`: Added `doaj_journalcsv_.*\.csv` pattern to strict privacy validator.
+- `scripts/verify_integration.py`: Extended integration tests and invariants to verify all 4 source datasets and current DOAJ metrics.
+- `tests/test_engine.py`: Added tests asserting 4 source datasets and current DOAJ reconciliation metrics.
+- `tests/test_wp4_integration.test.mjs`: Added tests asserting existence and reconciliation of `fact_doaj_current_public.json`.
+- `data/public/v1/` and `public/data/v1/`: Updated all versioned JSON outputs with zero loss of historical data and added `fact_doaj_current_public.json`.
+- `src/types/index.ts`: Added `CurrentDoajStatus`, `FactDoajCurrentRecord`, `CurrentDoajSummary`, and updated `DimJournalRecord`, `SummaryPublic`.
+- `src/data/loader.ts`: Added `loadFactDoajCurrent()`.
+- `src/components/charts/CurrentSintaVennDiagram.tsx`: Deterministic 2-set Venn diagram illustrating current DOAJ × SINTA indexing overlap.
+- `src/pages/OverviewPage.tsx`: Integrated 2-set Current DOAJ × SINTA Venn diagram and comparative benchmark metrics.
+- `src/pages/RejectedApplicationsPage.tsx`: Added Current DOAJ indexing status badges in the record table.
+- `src/pages/WithdrawnJournalsPage.tsx`: Added Current DOAJ indexing status badges and direct verified `/toc/...` public links.
+- `src/pages/SintaAnalysisPage.tsx`: Added Current DOAJ indexing coverage horizontal bar chart (S1: 62.6%, S2: 47.1%, S3: 23.8%, S4: 10.7%, S5: 3.2%, S6: 1.3%) and table columns.
+- `src/pages/JournalExplorerPage.tsx`: Redesigned Route 6 into a search-first dossier system with prominent multi-attribute search (Title, P-ISSN, E-ISSN, ID), candidate selector, comprehensive dossier card, action links, and chronological event timeline.
+- `src/pages/DataQualityPage.tsx`: Added 4th dataset audit and Indonesia filtering counts to the manifest table.
+
+Tests executed + actual result:
+- `python3 -m unittest discover -s tests -v` — PASS; 24 tests.
+- `python3 scripts/verify_integration.py` — PASS; 8,898 rejected, 570 withdrawn, 2,733 current DOAJ (Indonesia), 16,620 SINTA rows.
+- `npm run typecheck` — PASS; 0 TypeScript errors.
+- `npm test` — PASS; 22 node test suites passing.
+- `npm run build` — PASS; clean production bundle built.
+- `python3 scripts/validate_public.py data/public public dist` — PASS; 0 privacy or secret violations.
+
+Release status: Ready for commit, push to `origin main`, and GitHub Actions deployment.

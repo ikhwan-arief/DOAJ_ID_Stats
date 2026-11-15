@@ -82,6 +82,15 @@ SOURCE_CONTRACTS = (
         p_issn_column="P-ISSN",
         e_issn_column="E-ISSN",
     ),
+    SourceContract(
+        dataset="doaj_current",
+        filename="doaj_journalcsv_20261115_0020_utf8.csv",
+        expected_rows=23_733,
+        expected_columns=52,
+        required_columns=DOAJ_COMMON_COLUMNS | {"Added on Date", "Last updated Date"},
+        p_issn_column="Journal ISSN (print version)",
+        e_issn_column="Journal EISSN (online version)",
+    ),
 )
 
 # Public records are constructed from these fields only. Input dictionaries are
@@ -151,6 +160,26 @@ PUBLIC_FIELD_ALLOWLISTS: dict[str, frozenset[str]] = {
             "google_scholar_url",
             "website_url",
             "editor_url",
+        }
+    ),
+    "doaj_current": frozenset(
+        {
+            "source_dataset",
+            "source_record_id",
+            "journal_title",
+            "journal_url",
+            "doaj_profile_url",
+            "p_issn_raw",
+            "e_issn_raw",
+            "p_issn_normalized",
+            "e_issn_normalized",
+            "p_issn_quality",
+            "e_issn_quality",
+            "publisher",
+            "country_of_publisher",
+            "subjects",
+            "added_on_raw",
+            "last_updated_raw",
         }
     ),
 }

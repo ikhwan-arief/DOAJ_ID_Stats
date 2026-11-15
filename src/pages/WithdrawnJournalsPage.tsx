@@ -426,7 +426,7 @@ export const WithdrawnJournalsPage: React.FC<WithdrawnJournalsPageProps> = ({
                 <SortableHeader columnKey="withdrawn" label="Withdrawal Date" activeKey={sortKey} direction={direction} onSort={requestSort} />
                 <SortableHeader columnKey="reinstated" label="Reinstatement Date" activeKey={sortKey} direction={direction} onSort={requestSort} />
                 <SortableHeader columnKey="rank" label="SINTA Rank" activeKey={sortKey} direction={direction} onSort={requestSort} />
-                <SortableHeader columnKey="profile" label="Public Profile" activeKey={sortKey} direction={direction} onSort={requestSort} />
+                <SortableHeader columnKey="profile" label="Current DOAJ Status" activeKey={sortKey} direction={direction} onSort={requestSort} />
                 <th style={{ padding: 'var(--space-3)' }}>Actions</th>
               </tr>
             </thead>

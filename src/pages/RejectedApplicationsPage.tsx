@@ -440,13 +440,14 @@ export const RejectedApplicationsPage: React.FC<RejectedApplicationsPageProps> =
                 <SortableHeader columnKey="date" label="Date Rejected" activeKey={sortKey} direction={direction} onSort={requestSort} />
                 <SortableHeader columnKey="rank" label="SINTA Rank" activeKey={sortKey} direction={direction} onSort={requestSort} />
                 <SortableHeader columnKey="match" label="Match Status" activeKey={sortKey} direction={direction} onSort={requestSort} />
+                <th style={{ padding: 'var(--space-3)' }}>Current DOAJ Status</th>
                 <th style={{ padding: 'var(--space-3)' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
               {pagedRecords.length === 0 ? (
                 <tr>
-                  <td colSpan={8} style={{ padding: 'var(--space-5)', textAlign: 'center', color: 'var(--dark-grey)' }}>
+                  <td colSpan={9} style={{ padding: 'var(--space-5)', textAlign: 'center', color: 'var(--dark-grey)' }}>
                     No rejection records match your active filter criteria.
                   </td>
                 </tr>
