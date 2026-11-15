@@ -1,5 +1,5 @@
 {
-  "etl_commit": "c51d161",
+  "etl_commit": "ea7be3b",
   "outputs": {
     "data_quality_public.json": "72ed2360bfad116b3085513569f3c503ce3129be5fb2a27a31cb25f8cc3df1c8",
     "dim_journals_public.json": "1eadde1ee739c4ca21caee4e0d8a81f14b0850e59dcd2d5de34e523a646e6e42",
