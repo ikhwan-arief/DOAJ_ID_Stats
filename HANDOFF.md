@@ -1,12 +1,14 @@
 # Agent Handoff Log
 
-**Project state:** **DEPLOYMENT BLOCKED** pending GitHub CLI device authorization for `ikhwan-arief`. WP7 release commit and all local gates pass; no GitHub publication has occurred.
+**Project state:** **PRODUCTION DEPLOYED AND LIVE VERIFIED.** The visual-first analytical observatory upgrade across all seven routes has been implemented, verified through all local and CI quality gates, committed, pushed to `main`, and deployed via GitHub Actions to GitHub Pages. All live endpoints and HTTPS pages are operational.
 
 ## Current task
-- Next owner: **Codex**
-- Work package: **WP7 — resume after GitHub authorization**
-- Goal: create/push the public repository, enable Actions-based Pages, deploy, and verify the live unauthenticated site.
-- Prerequisites: complete `gh auth login -h github.com` for the intended `ikhwan-arief` account.
+- Owner: **Antigravity**
+- Work package: **Production Release Verification Complete**
+- Status: **DONE**
+- Public Repository: https://github.com/ikhwan-arief/DOAJ_ID_Stats
+- Live Dashboard: https://ikhwan-arief.github.io/DOAJ_ID_Stats/
+- Deployed Commit SHA: `e8880a1` (HEAD of `main`)
 
 ## Handoff template (append a new entry after each task)
 ```text
