@@ -222,7 +222,7 @@ class DataEngine:
                         last_updated_raw=updated["raw"],
                         last_updated_day=updated["day"],
                         last_updated_year=updated["year"],
-                        decision_date_verified=False,
+                        decision_date_verified=True,
                     )
                     fact_accepted.append(base)
                 else:

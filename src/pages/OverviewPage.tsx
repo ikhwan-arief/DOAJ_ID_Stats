@@ -304,7 +304,7 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({ filters, onNavigateT
 
       <Alert type="note" title="Production Verification">
         Metrics below respond to the active filters and are derived from validated, versioned public exports.
-        The unfiltered baselines preserve all 9,308 Rejected, 1,421 Accepted, 570 Withdrawn, and 16,620 SINTA source rows.
+        The unfiltered baselines preserve all 9,308 Rejected, 1,421 Accepted, 661 Withdrawn, and 16,620 SINTA source rows.
       </Alert>
 
       {/* KPI Cards Grid */}

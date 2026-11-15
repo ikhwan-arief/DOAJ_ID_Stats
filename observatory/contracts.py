@@ -74,8 +74,8 @@ SOURCE_CONTRACTS = (
     ),
     SourceContract(
         dataset="withdrawn",
-        filename="ID_-_Last_Withdrawn_2026-11-14T22_08_52Z.csv",
-        expected_rows=570,
+        filename="ID_-_Last_withdrawn_2026-11-15T03_59_04Z.csv",
+        expected_rows=661,
         expected_columns=59,
         required_columns=DOAJ_COMMON_COLUMNS
         | {"Date Applied", "Last Withdrawn Date", "Last Reinstated Date"},

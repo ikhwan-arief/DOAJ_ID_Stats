@@ -274,7 +274,7 @@ export const WithdrawnJournalsPage: React.FC<WithdrawnJournalsPageProps> = ({
   }
 
   if (!withdrawn) {
-    return <LoadingState message="Loading verified DOAJ withdrawal records (570 baseline)..." />;
+    return <LoadingState message="Loading verified DOAJ withdrawal records..." />;
   }
 
   return (
@@ -296,7 +296,7 @@ export const WithdrawnJournalsPage: React.FC<WithdrawnJournalsPageProps> = ({
         </h2>
         <p style={{ color: 'var(--dark-grey)', maxWidth: '900px' }}>
           Indonesian journals recorded in the DOAJ Last Withdrawn dataset (2022–2026). Captures annual delisting trends,
-          accreditation tier compositions, overlap with application rejection histories, and factual reinstatement records (570 total source rows conserved).
+          accreditation tier compositions, overlap with application rejection histories, and recorded returns to DOAJ (all 661 authoritative source rows conserved).
         </p>
       </div>
 

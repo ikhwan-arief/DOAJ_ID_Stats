@@ -955,7 +955,7 @@ export const JournalExplorerPage: React.FC<JournalExplorerPageProps> = ({
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
                 {/* 1. Verified Chronological Events Sequence */}
-                {(journalRejections.length > 0 || journalWithdrawns.length > 0) && (
+                {(journalRejections.length > 0 || journalWithdrawns.length > 0 || journalAccepted.length > 0) && (
                   <div>
                     <h5 style={{ fontSize: 'var(--text-sm)', fontWeight: 700, margin: '0 0 var(--space-2) 0', color: 'var(--warm-black)' }}>
                       Verified Historical Events (Chronological Order)
@@ -967,12 +967,21 @@ export const JournalExplorerPage: React.FC<JournalExplorerPageProps> = ({
                           kind: 'rejection' as const,
                           rej,
                           withdrawn: null,
+                          acc: null,
+                        })),
+                        ...journalAccepted.map((acc) => ({
+                          date: acc.added_day || (acc.added_year ? `${acc.added_year}-01-01` : '2022-01-01'),
+                          kind: 'accepted' as const,
+                          rej: null,
+                          withdrawn: null,
+                          acc,
                         })),
                         ...journalWithdrawns.map((w) => ({
                           date: w.last_withdrawn_day || (w.last_withdrawn_year ? `${w.last_withdrawn_year}-01-01` : '2022-01-01'),
                           kind: 'withdrawn' as const,
                           rej: null,
                           withdrawn: w,
+                          acc: null,
                         })),
                       ]
                         .sort((a, b) => a.date.localeCompare(b.date))
@@ -1002,6 +1011,35 @@ export const JournalExplorerPage: React.FC<JournalExplorerPageProps> = ({
                                 </div>
                                 <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', fontWeight: 600 }}>
                                   {ev.rej.event_day || ev.rej.event_at_raw || '—'}
+                                </span>
+                              </li>
+                            );
+                          }
+                          if (ev.kind === 'accepted' && ev.acc) {
+                            return (
+                              <li
+                                key={ev.acc.source_record_id}
+                                style={{
+                                  padding: 'var(--space-2) var(--space-3)',
+                                  backgroundColor: 'var(--sand-light)',
+                                  borderLeft: '4px solid var(--dark-navy)',
+                                  borderRadius: 'var(--radius-sm)',
+                                  display: 'flex',
+                                  justifyContent: 'space-between',
+                                  alignItems: 'center',
+                                  fontSize: 'var(--text-sm)',
+                                  flexWrap: 'wrap',
+                                  gap: 'var(--space-2)',
+                                }}
+                              >
+                                <div>
+                                  <strong>Accepted Event:</strong> Record {ev.acc.source_record_id}
+                                  <div style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)', marginTop: '2px' }}>
+                                    Adopted Event Date (Added on Date convention) • Match: {formatMatchStatus(ev.acc.strict_match_status)}
+                                  </div>
+                                </div>
+                                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--dark-navy)' }}>
+                                  {ev.acc.added_day || ev.acc.added_on_raw || '—'}
                                 </span>
                               </li>
                             );

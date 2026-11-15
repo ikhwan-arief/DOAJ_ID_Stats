@@ -31,6 +31,10 @@ export const DeterministicVennDiagram: React.FC<DeterministicVennDiagramProps> =
   const wsCount = getCount('WS');
   const rwsCount = getCount('RWS');
 
+  const totalRejected = rCount + rwCount + rsCount + rwsCount;
+  const totalWithdrawn = wCount + rwCount + wsCount + rwsCount;
+  const totalSinta = sCount + rsCount + wsCount + rwsCount;
+
   const totalUniverse = regions.reduce((sum, r) => sum + r.count, 0);
 
   return (
@@ -112,13 +116,13 @@ export const DeterministicVennDiagram: React.FC<DeterministicVennDiagramProps> =
 
           {/* Set Labels Outside */}
           <text x="110" y="70" fill="var(--sanguine)" fontSize="14" fontWeight="700" fontFamily="var(--font-sans)">
-            DOAJ Rejected (5,754)
+            DOAJ Rejected ({totalRejected.toLocaleString()})
           </text>
           <text x="310" y="70" fill="var(--dark-green)" fontSize="14" fontWeight="700" fontFamily="var(--font-sans)">
-            DOAJ Withdrawn (569)
+            DOAJ Withdrawn ({totalWithdrawn.toLocaleString()})
           </text>
           <text x="260" y="375" fill="var(--mid-green)" fontSize="14" fontWeight="700" textAnchor="middle" fontFamily="var(--font-sans)">
-            SINTA Population (16,620)
+            SINTA Population ({totalSinta.toLocaleString()})
           </text>
 
           {/* Region R (Only Rejected) */}

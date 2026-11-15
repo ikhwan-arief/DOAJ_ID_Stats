@@ -1,17 +1,17 @@
 {
-  "etl_commit": "0517c52",
+  "etl_commit": "7b14dcf3717183eb2ba74ec87446058994e90752",
   "outputs": {
-    "data_quality_public.json": "4eab0a06cf08b8965839266c14d96bcf61c7dafafce1fbb92eff63e1efe3c695",
-    "dim_journals_public.json": "f97a0295338a1ec59b8bae5412f5f3310c2b7f05dc2e6cb20e32684a01b21a35",
-    "fact_accepted_public.json": "bae002eed77ee2aa60e92ec870353d77a7083a2f2f3ff0ce1e47b0fcc356647d",
+    "data_quality_public.json": "894e577cc7c659c3cc5ef5510c3332221dbdfbc55f64e69b0116bd6b17f4a4cd",
+    "dim_journals_public.json": "a9c08c4dba56a2861b4c6374ab1a936866c6d3c6efa20d43178868a052410c01",
+    "fact_accepted_public.json": "2ddd5a04c27708c27d5182bdfc3658b9304b2265e755eebb9921edca627c3d86",
     "fact_doaj_current_public.json": "638d505262d9ec99f67ae6272a0136554f98729db34de6d06b7dd285845aea74",
     "fact_rejected_public.json": "7d0593ae6823572f06005313a69619201a0cb171d9cf06562ee4057155a3ff6e",
-    "fact_withdrawn_public.json": "b77d6e083d92be57c93798ae0f7b5cb3719411790117fca8977ca35262b58484",
-    "intersections_public.json": "c98f799f8aec053449651ed1b1568a834a82b6b3de5efa1d33024f78fdb7d6a4",
-    "match_audit_public.json": "81cd871ee4ae2de0088ac80be9961ff79b01b0580223577de0e5d06f8ca4d16a",
+    "fact_withdrawn_public.json": "d97cf1b2cc64bf96c320df2d0f8ebb9739ee9fc0b5378e0ac6dbeb1461c5bd5c",
+    "intersections_public.json": "01cfd437c618f299114ddbc87394774d1eb78b6fc6af96e0f98230d591e61637",
+    "match_audit_public.json": "860a89d0055139a1cd914a1441731a80cd1e03983238085c69d9f75ac1b157ed",
     "rejection_history_public.json": "7bfa9537b7953ca95b2f7f49c54cb22d011f44f115d9afb0c81df71e745a46e5",
     "sinta_snapshot_public.json": "6b9eae2d24ffe828403585a3c7ba7ba3f35d0ab6ce7017c4837b4e688188ed4f",
-    "summary_public.json": "10229f134d266d10c7cc8ea5b0205ce283f80438bb8835ad16da2046e4b3271e"
+    "summary_public.json": "5f697d2a7ed0eecd2048ab455b6b6f723ebcdf382b244f9742e18b82153b24f2"
   },
   "schema_version": "1.0.0",
   "source_dates": {
@@ -40,8 +40,8 @@
       "column_count": 59,
       "encoding": "utf-8-sig",
       "header_sha256": "da02c4eaa2341c8ccd8963575847a21925d8a6835362accffceda7d79b3b3d3a",
-      "row_count": 570,
-      "sha256": "a81c257f0e78aa436383586a6ba18a9564805c60b5256135d0b6c6fd8feba501",
+      "row_count": 661,
+      "sha256": "b34cbc3ff3b249d48dc4c9b74d8a1df5bd9bf9833a11ad80921cc6ae72f3e381",
       "source_name": "withdrawn"
     },
     {

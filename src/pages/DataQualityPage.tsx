@@ -31,8 +31,8 @@ export const DataQualityPage: React.FC = () => {
 
   const manifestRows = useMemo(() => summary ? [
     { label: 'DOAJ Historical Rejected Applications', rows: summary.source_record_counts.rejected, journals: summary.identity_counts.rejected_resolved_journals, date: '2026-11-15', dateLabel: '15 November 2026 (2022–2026 Authoritative)', integrity: '100% Conserved' },
-    { label: 'DOAJ Historical Accepted Applications', rows: summary.source_record_counts.accepted || 1421, journals: summary.identity_counts.accepted_resolved_journals || 1414, date: '2026-11-15', dateLabel: '15 November 2026 (Unverified Decision Dates)', integrity: '100% Conserved' },
-    { label: 'DOAJ Historical Withdrawn Journals', rows: summary.source_record_counts.withdrawn, journals: summary.identity_counts.withdrawn_resolved_journals, date: '2026-11-14', dateLabel: '14 November 2026 (2022–2026)', integrity: '100% Conserved' },
+    { label: 'DOAJ Historical Accepted Applications', rows: summary.source_record_counts.accepted || 1421, journals: summary.identity_counts.accepted_resolved_journals || 1414, date: '2026-11-15', dateLabel: '15 November 2026 (Added on Date Convention)', integrity: '100% Conserved' },
+    { label: 'DOAJ Historical Withdrawn Journals', rows: summary.source_record_counts.withdrawn, journals: summary.identity_counts.withdrawn_resolved_journals, date: '2026-11-15', dateLabel: '15 November 2026 (2022–2026 Authoritative)', integrity: '100% Conserved' },
     { label: 'DOAJ Current Indexed Journals (Indonesia)', rows: summary.source_record_counts.doaj_current_indonesia || 2733, journals: summary.identity_counts.current_doaj_unique_journals || 2731, date: '2026-11-15', dateLabel: '15 November 2026 (Current Snapshot)', integrity: '100% Conserved' },
     { label: 'SINTA National Accreditation Census', rows: summary.source_record_counts.sinta, journals: summary.identity_counts.sinta_journals, date: '2026-11-15', dateLabel: '15 November 2026 (National Census)', integrity: '100% Conserved' },
   ] : [], [summary]);
@@ -67,7 +67,7 @@ export const DataQualityPage: React.FC = () => {
           let res = `<div style="font-weight:700;margin-bottom:4px;">${params[0].axisValue}</div>`;
           params.forEach((item: any) => {
             const count = Number(item.value);
-            const total = 9468; // 8898 rejected + 570 withdrawn = 9468 DOAJ source records
+            const total = summary ? (summary.source_record_counts.rejected + summary.source_record_counts.withdrawn + (summary.source_record_counts.accepted || 0)) : 11390;
             const pct = ((count / total) * 100).toFixed(1);
             res += `<div style="display:flex;justify-content:space-between;gap:12px;font-size:12px;">
               <span>${item.marker} ${item.seriesName}</span>
@@ -398,7 +398,7 @@ export const DataQualityPage: React.FC = () => {
           title="Strict vs Extended Matching Protocol Comparison"
           metricLabel="DOAJ Source Records Reconciled"
           unit="Records"
-          denominatorNote="9,468 DOAJ source records (8,898 rejected + 570 withdrawn)"
+          denominatorNote="Reconciled DOAJ Historical Source Records (9,308 Rejected + 661 Withdrawn + 1,421 Accepted)"
           scopeNote="2022 – 2026 DOAJ Archive × 2026-11-15 SINTA Snapshot"
           ariaLabel="Strict vs extended matching protocol comparison bar chart"
         />
@@ -409,7 +409,7 @@ export const DataQualityPage: React.FC = () => {
           title="ISSN Quality Distribution (Checksum vs Formatted vs Placeholder)"
           metricLabel="ISSN Verification Quality Status"
           unit="Occurrences"
-          denominatorNote="9,468 DOAJ Source Records (P-ISSN and E-ISSN analyzed independently)"
+          denominatorNote="DOAJ Source Records (P-ISSN and E-ISSN analyzed independently)"
           scopeNote="2022 – 2026 DOAJ Archive"
           ariaLabel="ISSN quality distribution bar chart"
         />
@@ -505,11 +505,13 @@ export const DataQualityPage: React.FC = () => {
           <p style={{ fontSize: 'var(--text-sm)', color: 'var(--dark-grey)', lineHeight: 1.6 }}>
             • <strong>Historical Event Types:</strong> Historical events are strictly classified into <strong>Rejected</strong>, <strong>Accepted</strong>, and <strong>Withdrawn</strong>.
             <br />
+            • <strong>Accepted Event Date Convention:</strong> Accepted event dates use the 'Added on Date' field from the DOAJ Accepted export as an analytical convention.
+            <br />
+            • <strong>Authoritative Datasets:</strong> Uses the 9,308-row authoritative Rejected dataset and the updated 661-row Withdrawn dataset (covering withdrawal events from January 2022 to October 2026).
+            <br />
             • <strong>Currently Indexed:</strong> Represents a journal reliably verified in the active Indonesian DOAJ snapshot (15 November 2026). It serves as a <em>terminal snapshot observation</em>, not a historical application acceptance event.
             <br />
             • <strong>Absence of Snapshot Match:</strong> A journal not found in the current snapshot indicates only that active indexing was not confirmed on 15 November 2026; it does not prove that the journal never reapplied or was permanently excluded.
-            <br />
-            • <strong>Date Verification:</strong> Accepted records lacking verified decision dates are explicitly qualified and never assigned arbitrary chronological dates.
           </p>
         </section>
       </div>

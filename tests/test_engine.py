@@ -21,7 +21,7 @@ class EngineIntegrationTests(unittest.TestCase):
 
     def test_source_rows_are_conserved_one_to_one(self) -> None:
         self.assertEqual(len(self.outputs["fact_rejected_public.json"]), 9_308)
-        self.assertEqual(len(self.outputs["fact_withdrawn_public.json"]), 570)
+        self.assertEqual(len(self.outputs["fact_withdrawn_public.json"]), 661)
         self.assertEqual(len(self.outputs["sinta_snapshot_public.json"]), 16_620)
         self.assertEqual(len(self.outputs["fact_doaj_current_public.json"]), 2_733)
         if "fact_accepted_public.json" in self.outputs:
@@ -49,7 +49,7 @@ class EngineIntegrationTests(unittest.TestCase):
             for key in ("p_issn_raw", "e_issn_raw")
             if record[key] in required
         ]
-        self.assertEqual(len(occurrences), 37)
+        self.assertEqual(len(occurrences), 50)
         self.assertTrue(all(quality == "placeholder" for _, quality in occurrences))
 
     def test_rank_categories_and_source_denominator_reconcile(self) -> None:
@@ -113,7 +113,7 @@ class EngineIntegrationTests(unittest.TestCase):
     def test_match_audit_is_one_to_one_with_doaj_rows(self) -> None:
         audits = self.outputs["match_audit_public.json"]
         accepted_count = len(self.outputs.get("fact_accepted_public.json", []))
-        self.assertEqual(len(audits), 9_308 + 570 + accepted_count)
+        self.assertEqual(len(audits), 9_308 + 661 + accepted_count)
         self.assertEqual(len(audits), len({record["source_record_id"] for record in audits}))
         self.assertTrue(all(record["strict_method"] in {"e_to_e", "p_to_p_fallback", "no_usable_issn"} for record in audits))
 
