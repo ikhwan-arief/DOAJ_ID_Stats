@@ -69,10 +69,11 @@ export const Footer: React.FC = () => {
                 gap: 'var(--space-1)',
               }}
             >
-              <li>• DOAJ Rejected Applications (2022–2026, exported 14 Nov 2026 22:08 UTC)</li>
-              <li>• DOAJ Last Withdrawn (2022–2026, exported 14 Nov 2026 22:08 UTC)</li>
-              <li>• SINTA National Database Snapshot (Final, 15 Nov 2026)</li>
-              <li>• Processing: Deterministic ISSN matching with strict & extended protocols</li>
+              <li>• DOAJ Historical Rejection Records (2022–2026)</li>
+              <li>• DOAJ Historical Withdrawal Records (2022–2026)</li>
+              <li>• DOAJ Current Indexed Journals (Snapshot: 15 November 2026)</li>
+              <li>• SINTA National Accreditation Census (Snapshot: 15 November 2026)</li>
+              <li>• Methodology: Deterministic ISSN matching using strict and extended protocols</li>
             </ul>
           </div>
 

@@ -80,3 +80,66 @@ test('WP4 Production Integration: Real Validated Outputs & Quality Gates', async
     }
   });
 });
+
+
+test('Public Interface & Repository Cleanup Invariants', async (t) => {
+  await t.test('Technical export descriptions are completely absent from public codebase and dist', () => {
+    const forbiddenStrings = [
+      'DOAJ Rejected Applications (2022–2026, exported 14 Nov 2026 22:08 UTC)',
+      'DOAJ Last Withdrawn (2022–2026, exported 14 Nov 2026 22:08 UTC)',
+    ];
+
+    const dirsToScan = [path.join(rootDir, 'src'), path.join(rootDir, 'public')];
+    if (fs.existsSync(path.join(rootDir, 'dist'))) {
+      dirsToScan.push(path.join(rootDir, 'dist'));
+    }
+
+    function checkDir(dir) {
+      const entries = fs.readdirSync(dir, { withFileTypes: true });
+      for (const entry of entries) {
+        const fullPath = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          checkDir(fullPath);
+        } else if (/\.(tsx?|jsx?|html|json|css)$/.test(entry.name)) {
+          const content = fs.readFileSync(fullPath, 'utf8');
+          for (const forbidden of forbiddenStrings) {
+            assert.ok(
+              !content.includes(forbidden),
+              `Forbidden technical export description found in ${fullPath}`,
+            );
+          }
+        }
+      }
+    }
+
+    for (const d of dirsToScan) {
+      checkDir(d);
+    }
+  });
+
+  await t.test('Internal agent/protocol/design Markdown files are not in repository root', () => {
+    const forbiddenFiles = [
+      'AGENTS.md',
+      'MASTER_PLAN.md',
+      'DATA_CONTRACT.md',
+      'METRICS_AND_MATCHING.md',
+      'PRIVACY_AND_PUBLICATION.md',
+      'DESIGN_PROTOCOL.md',
+      'DOAJ-design-protocol-EN.md',
+      'DOAJ-design-protocol-ID.md',
+      'WORK_PACKAGES.md',
+      'ACCEPTANCE_TESTS.md',
+      'HANDOFF.md',
+      'PROMPTS_FOR_AGENTS.md',
+      'GITHUB_RELEASE.md',
+      '00_README_START_HERE.md',
+    ];
+
+    for (const file of forbiddenFiles) {
+      assert.ok(
+        !fs.existsSync(path.join(rootDir, file)),
+        `Internal file ${file} should have been removed from repository root`,
+      );
+    }
+  });
+});

@@ -237,7 +237,7 @@ export const GlobalFilterBar: React.FC<GlobalFilterBarProps> = ({
             )}
           </span>
           <span style={{ fontStyle: 'italic' }}>
-            Scope: DOAJ 2022–2026 (Nov 14 UTC) × SINTA Snapshot 15 Nov 2026
+            Scope: DOAJ Historical 2022–2026 & Current Snapshot × SINTA Census 15 Nov 2026
           </span>
         </div>
       </div>

@@ -30,10 +30,10 @@ export const DataQualityPage: React.FC = () => {
   }, []);
 
   const manifestRows = useMemo(() => summary ? [
-    { label: 'DOAJ Rejected Applications', rows: summary.source_record_counts.rejected, journals: summary.identity_counts.rejected_resolved_journals, date: summary.as_of.doaj_export_utc, dateLabel: `${summary.as_of.doaj_export_utc} UTC`, integrity: '100% Conserved' },
-    { label: 'DOAJ Last Withdrawn', rows: summary.source_record_counts.withdrawn, journals: summary.identity_counts.withdrawn_resolved_journals, date: summary.as_of.doaj_export_utc, dateLabel: `${summary.as_of.doaj_export_utc} UTC`, integrity: '100% Conserved' },
-    { label: 'DOAJ Current Indexed (Indonesia)', rows: summary.source_record_counts.doaj_current_indonesia || 2733, journals: summary.identity_counts.current_doaj_unique_journals || 2731, date: summary.as_of.doaj_current_snapshot || '2026-11-15', dateLabel: `${summary.as_of.doaj_current_snapshot || '2026-11-15'} (23,733 global)`, integrity: '100% Conserved' },
-    { label: 'SINTA National Database', rows: summary.source_record_counts.sinta, journals: summary.identity_counts.sinta_journals, date: summary.as_of.sinta_snapshot, dateLabel: `${summary.as_of.sinta_snapshot} (Final Census)`, integrity: '100% Conserved' },
+    { label: 'DOAJ Historical Rejected Applications', rows: summary.source_record_counts.rejected, journals: summary.identity_counts.rejected_resolved_journals, date: '2026-11-14', dateLabel: '14 November 2026 (2022–2026)', integrity: '100% Conserved' },
+    { label: 'DOAJ Historical Withdrawn Journals', rows: summary.source_record_counts.withdrawn, journals: summary.identity_counts.withdrawn_resolved_journals, date: '2026-11-14', dateLabel: '14 November 2026 (2022–2026)', integrity: '100% Conserved' },
+    { label: 'DOAJ Current Indexed Journals (Indonesia)', rows: summary.source_record_counts.doaj_current_indonesia || 2733, journals: summary.identity_counts.current_doaj_unique_journals || 2731, date: '2026-11-15', dateLabel: '15 November 2026 (Current Snapshot)', integrity: '100% Conserved' },
+    { label: 'SINTA National Accreditation Census', rows: summary.source_record_counts.sinta, journals: summary.identity_counts.sinta_journals, date: '2026-11-15', dateLabel: '15 November 2026 (National Census)', integrity: '100% Conserved' },
   ] : [], [summary]);
   const manifestAccessors = useMemo(() => ({
     label: (row: typeof manifestRows[number]) => row.label,

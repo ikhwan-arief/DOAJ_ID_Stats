@@ -320,7 +320,7 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({ filters, onNavigateT
           value={filters.metricView === 'records' ? filteredView.rejectedRows.length : filteredView.rejectedIds.size}
           unit={filters.metricView === 'records' ? 'records' : 'journals'}
           description={`Reconciled across ${filteredView.rejectedIds.size.toLocaleString()} distinct journals in this view`}
-          provenance={`DOAJ Rejected CSV (exported ${as_of.doaj_export_utc} UTC)`}
+          provenance="DOAJ Historical Rejection Records (2022–2026)"
           color="var(--sanguine)"
         />
         <MetricCard
@@ -328,7 +328,7 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({ filters, onNavigateT
           value={filters.metricView === 'records' ? filteredView.withdrawnRows.length : filteredView.withdrawnIds.size}
           unit={filters.metricView === 'records' ? 'records' : 'journals'}
           description={`Reconciled across ${filteredView.withdrawnIds.size.toLocaleString()} distinct journals in this view`}
-          provenance={`DOAJ Withdrawn CSV (exported ${as_of.doaj_export_utc} UTC)`}
+          provenance="DOAJ Historical Withdrawal Records (2022–2026)"
           color="var(--dark-green)"
         />
         <MetricCard
@@ -336,7 +336,7 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({ filters, onNavigateT
           value={filteredView.sintaIds.size}
           unit="journals"
           description="National accreditation census"
-          provenance={`SINTA Final Census (as of ${as_of.sinta_snapshot})`}
+          provenance="SINTA National Census (Snapshot: 15 November 2026)"
           color="var(--mid-green)"
         />
         <MetricCard

@@ -1,98 +1,88 @@
 # DOAJ × SINTA Journal Observatory
 
-An independent, evidence-led observatory of Indonesian journals represented in DOAJ rejection and withdrawal records and the final SINTA snapshot dated 15 November 2026.
+An independent, evidence-led observatory of Indonesian scholarly journals represented in DOAJ indexing, historical rejection and withdrawal records (2022–2026), and the national SINTA accreditation census (as of 15 November 2026).
 
-This is not an official DOAJ or SINTA service, and neither organization endorses it. The observatory reports source records and reconciled journal identities; it does not infer misconduct, rejection reasons, independent applications, current DOAJ status, or historical SINTA rank.
+This is not an official DOAJ or SINTA service, and neither organization endorses it. The observatory reports source records and reconciled journal identities; it does not infer misconduct, rejection reasons, or historical SINTA accreditation rank.
 
-## Dashboard
+## Production Dashboard
 
-The production site contains seven hash-routed pages:
+The public observatory contains seven navigable analytical pages:
 
-1. Overview and exact Rejected/Withdrawn/SINTA intersections
-2. Rejected Applications
-3. Rejection History
-4. Withdrawn Journals
-5. SINTA Analysis
-6. Journal Explorer
-7. Data Quality and Methodology
+1. **Overview & Intersections**: High-level metrics, exact three-set Euler/Venn diagram, interactive UpSet matrix, and current DOAJ × SINTA two-set overlap.
+2. **Rejected Applications**: Longitudinal monthly/yearly event trajectories, SINTA tier distributions, and year-by-rank intensity heatmap.
+3. **Rejection History**: Recurrence distributions, consecutive application intervals, and top recurrent journal identities.
+4. **Withdrawn Journals**: Annual withdrawal volumes, SINTA rank breakdown, and current indexing status indicators.
+5. **SINTA Analysis**: Grouped comparative bars, current DOAJ coverage rates by tier (S1–S6), 100% stacked prevalence, and calendar year intensity heatmap.
+6. **Journal Explorer**: Search-first journal dossier system (by Title, P-ISSN, E-ISSN, or Reconciled ID) with verified public profile links and event timeline.
+7. **Data Quality & Methodology**: Source accounting, strict versus extended ISSN matching comparisons, and quality classification distributions.
 
-The public interface includes record and journal grain controls, strict and extended ISSN views, year and SINTA-rank filters, search, exact UpSet/Venn partitions, journal drill-downs, and filtered CSV export.
+The public interface features record and journal grain controls, strict and extended ISSN matching views, year and SINTA-rank filters, multi-attribute search, accessible table alternatives, and filtered CSV exports.
 
-## Data and analytical units
+## Analytical Datasets
 
-The release uses:
+The observatory synthesizes four authoritative datasets:
 
-- 8,898 DOAJ rejected source records;
-- 570 DOAJ withdrawn source records;
-- 16,620 SINTA snapshot rows dated 15 November 2026.
+- **DOAJ Historical Rejected Applications**: 8,898 records (2022–2026);
+- **DOAJ Historical Withdrawn Journals**: 570 records (2022–2026);
+- **DOAJ Current Indexed Journals (Indonesia)**: 2,733 records (snapshot: 15 November 2026);
+- **SINTA National Accreditation Census**: 16,620 journals (snapshot: 15 November 2026).
 
-Source records, distinct event days, event years, and reconciled journals are separate analytical units. SINTA rank labels always mean rank as of the snapshot date. Placeholder ISSNs remain verbatim but never establish journal identity by themselves.
+Source records, distinct event dates, calendar years, and reconciled journal entities are maintained as separate analytical units. SINTA accreditation ranks represent status as of the snapshot date. Placeholder ISSNs (`XXXX-XXXX`, `0000-0XXX`) are preserved verbatim but never establish journal identity alone.
 
-Canonical reviewed public outputs are versioned under `data/public/v1/`. The frontend copy under `public/data/v1/` must remain byte-identical. `manifest_public.json` records schema, source structural hashes, ETL revision, and output hashes.
+Canonical reviewed public outputs are versioned under `data/public/v1/`. The frontend copy under `public/data/v1/` remains byte-identical. `manifest_public.json` records schema versions, source structural hashes, ETL commit, and output file hashes.
 
-## Privacy boundary
+## Privacy & Security Boundary
 
-The original CSV files are local-only under ignored `data/raw/`. They must never be committed, uploaded to Pages, or copied into frontend assets.
+Original raw CSV files remain strictly local under `.gitignore` (`data/raw/`). They are never committed, uploaded to GitHub Pages, or serialized into frontend bundles.
 
-Public records are built from explicit allowlists. DOAJ personal account/contact columns and internal application links are excluded categorically. Only validated public DOAJ journal-profile links and separately validated journal websites are eligible for display. SINTA editorial-team URLs are treated as public links after URL-safety validation; no personal roster details are scraped.
+Public outputs are constructed using strict allowlists. Personal DOAJ account fields and internal administration routes (`/admin/application/`) are excluded categorically. Only validated public DOAJ journal-profile URLs (`/toc/...`), public journal websites, and SINTA editorial-team links are permitted.
 
-Everything shipped to a static site is public. The release gate recursively scans canonical exports, frontend data, HTML, JavaScript, CSS, downloads, and staged files for prohibited fields, email-shaped content, internal routes, raw filenames, credential-like query parameters, private keys, and common token patterns.
+Automated privacy scans recursively inspect all canonical exports, frontend assets, HTML, JavaScript, CSS, downloads, and staged git files for sensitive patterns, email addresses, internal routes, raw filenames, and credentials.
 
-## Local development
+## Development & Verification
 
-Requirements:
-
-- Python 3.11 or later
-- Node.js 22 or later
+### Prerequisites
+- Python 3.11+
+- Node.js 22+
 - npm
 
-Install the locked frontend dependencies and start Vite:
-
+### Installation & Local Run
 ```bash
 npm ci
 npm run dev
 ```
 
-Type-check, test, and build:
-
+### Build & Test Suite
 ```bash
+# Type check and build frontend
 npm run typecheck
 npm test
 npm run build
-```
 
-Run Python regressions and public-artifact validation:
-
-```bash
+# Python regression tests and public artifact validation
 python3 -m unittest discover -s tests -v
 python3 scripts/verify_integration.py --skip-source-rebuild
 python3 scripts/validate_public.py data/public public dist
 ```
 
-With the three authorized source CSVs present locally in `data/raw/`, execute the stronger source-to-public reconciliation:
-
+With authorized source CSV files present locally in `data/raw/`, run full source reconciliation:
 ```bash
 python3 scripts/verify_integration.py
 ```
 
-To regenerate the versioned public outputs, pass the reviewed engine commit explicitly and then re-run all gates:
+## Continuous Integration & Deployment
 
-```bash
-python3 scripts/build_public_data.py --etl-commit <reviewed-engine-commit>
-```
+The repository uses GitHub Actions (`.github/workflows/ci.yml`). On pushes and pull requests to `main`, the workflow:
+1. Rejects tracked private inputs or raw datasets;
+2. Executes Python regressions and integration verifications;
+3. Runs frontend tests and TypeScript checks;
+4. Builds the production artifact and runs recursive privacy scans;
+5. Automatically deploys to GitHub Pages on verified commits.
 
-Never regenerate or publish from an obsolete September SINTA file or an ISSN-cleaned derivative.
+## Repository Scope & Licensing
 
-## Continuous integration and deployment
+Application source code is licensed under the MIT License; see `LICENSE`.
 
-`.github/workflows/ci.yml` runs on pushes and pull requests. It rejects tracked private inputs, runs Python and frontend tests, reconciles public exports, type-checks, builds, scans the full artifact, and uploads the tested Pages artifact. A push to reviewed `main` deploys that exact artifact through GitHub Pages only after the verification job passes.
-
-Vite uses relative asset paths and the application uses hash routing, allowing every dashboard route to load reliably from a GitHub Pages project site.
-
-## Repository scope and licensing
-
-Original application code is licensed under the MIT License; see `LICENSE`.
-
-That code license does not grant rights over third-party source datasets, names, metadata, trademarks, or linked website content. Raw source CSVs are deliberately excluded. The committed derived tables are the reviewed, minimized public representation authorized for this observatory and remain subject to source attribution and applicable third-party terms.
+The code license does not grant rights over third-party source datasets, names, metadata, trademarks, or linked website content. Raw source CSV files are excluded. Derived public tables represent the reviewed, privacy-safe analytical extracts authorized for this observatory and remain subject to source attribution and applicable third-party terms.
 
 Developed by Ikhwan Arief (`ikhwan[at]unand.ac.id`).
