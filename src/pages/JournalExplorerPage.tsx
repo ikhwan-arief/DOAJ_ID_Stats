@@ -1039,6 +1039,11 @@ export const JournalExplorerPage: React.FC<JournalExplorerPageProps> = ({
               </ul>
             )}
           </div>
+
+          {/* Bottom Back Navigation Bar */}
+          <div style={{ marginTop: 'var(--space-2)' }}>
+            <BackNavigation onBack={onBack} targetLabel={backTargetLabel} />
+          </div>
         </div>
       )}
 
