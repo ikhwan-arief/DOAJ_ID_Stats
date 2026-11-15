@@ -18,6 +18,7 @@ export const SintaAnalysisPage: React.FC<SintaAnalysisPageProps> = ({
   const [rejected, setRejected] = useState<FactRejectedRecord[]>([]);
   const [withdrawn, setWithdrawn] = useState<FactWithdrawnRecord[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [matrixDisplayMode, setMatrixDisplayMode] = useState<'both' | 'count' | 'pct'>('both');
 
   useEffect(() => {
     Promise.all([loadSummary(), loadFactRejected(), loadFactWithdrawn()])
@@ -375,6 +376,170 @@ export const SintaAnalysisPage: React.FC<SintaAnalysisPageProps> = ({
         Percentages are calculated using the verified November 2026 SINTA census ({sintaTotal.toLocaleString()} total journals)
         as the official denominator. Current DOAJ coverage reflects the 2,733 Indonesian journals indexed in DOAJ as of November 15, 2026.
       </Alert>
+
+      {/* SINTA Lifecycle Matrix (Interactive Heatmap & Cross-Tabulation) */}
+      {summary?.lifecycle_summary?.sinta_lifecycle_matrix && (
+        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+          <div
+            style={{
+              padding: 'var(--space-3) var(--space-4)',
+              backgroundColor: 'var(--light-grey)',
+              borderBottom: '1px solid var(--neutral-border)',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: 'var(--space-2)',
+            }}
+          >
+            <div>
+              <h3 style={{ fontSize: 'var(--text-base)', margin: 0 }}>
+                Interactive SINTA Lifecycle Matrix
+              </h3>
+              <p style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)', margin: '2px 0 0 0' }}>
+                All prevalence percentages strictly use each row's SINTA population as the denominator. Conditions overlap; columns do not sum to 100%.
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: 'var(--space-1)', alignItems: 'center' }}>
+              <span style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)', marginRight: '4px' }}>Display:</span>
+              <button
+                type="button"
+                className={`btn ${matrixDisplayMode === 'both' ? 'btn-primary' : 'btn-secondary'}`}
+                style={{ padding: '2px 8px', minHeight: '28px', fontSize: 'var(--text-xs)' }}
+                onClick={() => setMatrixDisplayMode('both')}
+              >
+                Both
+              </button>
+              <button
+                type="button"
+                className={`btn ${matrixDisplayMode === 'count' ? 'btn-primary' : 'btn-secondary'}`}
+                style={{ padding: '2px 8px', minHeight: '28px', fontSize: 'var(--text-xs)' }}
+                onClick={() => setMatrixDisplayMode('count')}
+              >
+                Count
+              </button>
+              <button
+                type="button"
+                className={`btn ${matrixDisplayMode === 'pct' ? 'btn-primary' : 'btn-secondary'}`}
+                style={{ padding: '2px 8px', minHeight: '28px', fontSize: 'var(--text-xs)' }}
+                onClick={() => setMatrixDisplayMode('pct')}
+              >
+                %
+              </button>
+            </div>
+          </div>
+
+          <div style={{ overflowX: 'auto' }}>
+            <table
+              style={{
+                width: '100%',
+                borderCollapse: 'collapse',
+                fontSize: 'var(--text-xs)',
+                textAlign: 'right',
+              }}
+            >
+              <thead>
+                <tr style={{ borderBottom: '2px solid var(--neutral-border)', backgroundColor: 'var(--white)' }}>
+                  <th style={{ padding: 'var(--space-2) var(--space-3)', textAlign: 'left' }}>SINTA Rank</th>
+                  <th style={{ padding: 'var(--space-2) var(--space-3)' }}>Total Census</th>
+                  <th style={{ padding: 'var(--space-2) var(--space-3)', color: 'var(--dark-navy)' }}>Currently Indexed</th>
+                  <th style={{ padding: 'var(--space-2) var(--space-3)', color: 'var(--sanguine)' }}>Hist. Rejected</th>
+                  <th style={{ padding: 'var(--space-2) var(--space-3)' }}>Hist. Accepted</th>
+                  <th style={{ padding: 'var(--space-2) var(--space-3)' }}>Hist. Withdrawn</th>
+                  <th style={{ padding: 'var(--space-2) var(--space-3)' }}>Repeated Rej.</th>
+                  <th style={{ padding: 'var(--space-2) var(--space-3)', color: 'var(--dark-navy)' }}>R → A</th>
+                  <th style={{ padding: 'var(--space-2) var(--space-3)' }}>A → W</th>
+                  <th style={{ padding: 'var(--space-2) var(--space-3)' }}>W → A</th>
+                  <th style={{ padding: 'var(--space-2) var(--space-3)' }}>A → W → A</th>
+                  <th style={{ padding: 'var(--space-2) var(--space-3)', color: 'var(--dark-green)' }}>Withdrawn & Curr</th>
+                </tr>
+              </thead>
+              <tbody>
+                {['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'NA', 'Overall'].map((rank) => {
+                  const row = summary?.lifecycle_summary?.sinta_lifecycle_matrix?.[rank];
+                  if (!row) return null;
+                  const isOverall = rank === 'Overall';
+                  const formatCell = (cell: { count: number; percentage: number }) => {
+                    if (matrixDisplayMode === 'count') return cell.count.toLocaleString();
+                    if (matrixDisplayMode === 'pct') return `${cell.percentage.toFixed(1)}%`;
+                    return `${cell.count.toLocaleString()} (${cell.percentage.toFixed(1)}%)`;
+                  };
+
+                  return (
+                    <tr
+                      key={rank}
+                      style={{
+                        borderBottom: '1px solid var(--light-grey)',
+                        backgroundColor: isOverall ? 'var(--sand-light)' : 'var(--white)',
+                        fontWeight: isOverall ? 700 : 400,
+                      }}
+                    >
+                      <td style={{ padding: 'var(--space-2) var(--space-3)', textAlign: 'left' }}>
+                        {isOverall ? (
+                          <strong>Overall SINTA Population</strong>
+                        ) : (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <RankBadge rank={rank} />
+                            <button
+                              type="button"
+                              onClick={() => onSelectRank(rank)}
+                              style={{
+                                background: 'none',
+                                border: 'none',
+                                padding: 0,
+                                color: 'var(--warm-black)',
+                                cursor: 'pointer',
+                                fontWeight: 600,
+                                textDecoration: 'underline',
+                                fontSize: 'var(--text-xs)',
+                              }}
+                            >
+                              {rank}
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                      <td style={{ padding: 'var(--space-2) var(--space-3)', fontFamily: 'var(--font-mono)' }}>
+                        {row.total_sinta_journals.toLocaleString()}
+                      </td>
+                      <td style={{ padding: 'var(--space-2) var(--space-3)', fontFamily: 'var(--font-mono)', color: 'var(--dark-navy)' }}>
+                        {formatCell(row.currently_indexed)}
+                      </td>
+                      <td style={{ padding: 'var(--space-2) var(--space-3)', fontFamily: 'var(--font-mono)', color: 'var(--sanguine)' }}>
+                        {formatCell(row.historical_rejected)}
+                      </td>
+                      <td style={{ padding: 'var(--space-2) var(--space-3)', fontFamily: 'var(--font-mono)' }}>
+                        {formatCell(row.historical_accepted)}
+                      </td>
+                      <td style={{ padding: 'var(--space-2) var(--space-3)', fontFamily: 'var(--font-mono)' }}>
+                        {formatCell(row.historical_withdrawn)}
+                      </td>
+                      <td style={{ padding: 'var(--space-2) var(--space-3)', fontFamily: 'var(--font-mono)' }}>
+                        {formatCell(row.repeated_rejections)}
+                      </td>
+                      <td style={{ padding: 'var(--space-2) var(--space-3)', fontFamily: 'var(--font-mono)', color: 'var(--dark-navy)' }}>
+                        {formatCell(row.verified_r_to_a)}
+                      </td>
+                      <td style={{ padding: 'var(--space-2) var(--space-3)', fontFamily: 'var(--font-mono)' }}>
+                        {formatCell(row.verified_a_to_w)}
+                      </td>
+                      <td style={{ padding: 'var(--space-2) var(--space-3)', fontFamily: 'var(--font-mono)' }}>
+                        {formatCell(row.verified_w_to_a)}
+                      </td>
+                      <td style={{ padding: 'var(--space-2) var(--space-3)', fontFamily: 'var(--font-mono)' }}>
+                        {formatCell(row.verified_a_w_a)}
+                      </td>
+                      <td style={{ padding: 'var(--space-2) var(--space-3)', fontFamily: 'var(--font-mono)', color: 'var(--dark-green)' }}>
+                        {formatCell(row.withdrawn_and_currently_indexed)}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* Visual Analytics Row 1: Current DOAJ Coverage & Grouped Bars */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))', gap: 'var(--space-4)' }}>

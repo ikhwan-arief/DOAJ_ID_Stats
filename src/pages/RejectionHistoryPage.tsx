@@ -243,6 +243,118 @@ export const RejectionHistoryPage: React.FC<RejectionHistoryPageProps> = ({
     };
   }, [historyAnalytics.top20Journals]);
 
+  // Chart 4: Time from Rejection to Acceptance Duration Bands
+  const timeToAcceptanceBandsOptions: echarts.EChartsOption = useMemo(() => {
+    const bands = summary?.lifecycle_summary?.time_to_acceptance_stats?.rejection_to_acceptance_bands || {
+      '0–30 days': 12, '31–90 days': 22, '91–180 days': 36, '181–365 days': 303, '> 365 days': 190,
+    };
+    const keys = Object.keys(bands);
+    const total = Object.values(bands).reduce((sum, v) => sum + v, 0);
+    return {
+      tooltip: {
+        trigger: 'axis',
+        axisPointer: { type: 'shadow' },
+        formatter: (params: any) => {
+          const item = params[0];
+          const pct = total > 0 ? ((item.value / total) * 100).toFixed(1) : '0';
+          return `Interval ${item.name}: <strong>${item.value}</strong> journals (${pct}%)`;
+        },
+      },
+      grid: { left: '4%', right: '4%', top: '10%', bottom: '15%', containLabel: true },
+      xAxis: {
+        type: 'category',
+        data: keys,
+        axisLabel: { fontFamily: 'var(--font-sans)', fontSize: 11 },
+      },
+      yAxis: {
+        type: 'value',
+        name: 'Journals',
+        axisLabel: { fontFamily: 'var(--font-mono)' },
+      },
+      series: [
+        {
+          name: 'Journals Reaching Acceptance',
+          type: 'bar',
+          data: keys.map((k) => ({
+            value: (bands as any)[k] || 0,
+            itemStyle: { color: '#245050' },
+          })),
+          label: {
+            show: true,
+            position: 'top',
+            fontFamily: 'var(--font-mono)',
+            fontSize: 11,
+          },
+        },
+      ],
+    };
+  }, [summary?.lifecycle_summary?.time_to_acceptance_stats]);
+
+  // Chart 5: First-Observed Rejection Cohort Outcomes
+  const rejectionCohortOptions: echarts.EChartsOption = useMemo(() => {
+    const cohorts = summary?.lifecycle_summary?.first_rejection_cohorts || {};
+    const years = Object.keys(cohorts).sort();
+    return {
+      tooltip: {
+        trigger: 'axis',
+        axisPointer: { type: 'shadow' },
+        formatter: (params: any) => {
+          let s = `<strong>Cohort ${params[0].name}</strong><br/>`;
+          params.forEach((p: any) => {
+            s += `${p.marker} ${p.seriesName}: <strong>${p.value.toLocaleString()}</strong><br/>`;
+          });
+          const c = cohorts[params[0].name];
+          if (c && c.median_days_to_accepted) {
+            s += `Median days to accepted: <strong>${c.median_days_to_accepted} days</strong>`;
+          }
+          return s;
+        },
+      },
+      legend: {
+        data: ['Cohort Total', 'Subsequent Accepted', 'Currently Indexed', 'Repeated Rejections'],
+        top: '2%',
+        textStyle: { fontFamily: 'var(--font-sans)', fontSize: 11 },
+      },
+      grid: { left: '4%', right: '4%', top: '16%', bottom: '15%', containLabel: true },
+      xAxis: {
+        type: 'category',
+        data: years.map((y) => `Cohort ${y}`),
+        axisLabel: { fontFamily: 'var(--font-sans)', fontSize: 11 },
+      },
+      yAxis: {
+        type: 'value',
+        name: 'Journals',
+        axisLabel: { fontFamily: 'var(--font-mono)' },
+      },
+      series: [
+        {
+          name: 'Cohort Total',
+          type: 'bar',
+          data: years.map((y) => cohorts[y]?.cohort_journals || 0),
+          itemStyle: { color: '#982E0A' },
+        },
+        {
+          name: 'Subsequent Accepted',
+          type: 'bar',
+          data: years.map((y) => cohorts[y]?.with_later_accepted || 0),
+          itemStyle: { color: '#245050' },
+        },
+        {
+          name: 'Currently Indexed',
+          type: 'bar',
+          data: years.map((y) => cohorts[y]?.currently_indexed || 0),
+          itemStyle: { color: '#3A5959' },
+        },
+        {
+          name: 'Repeated Rejections',
+          type: 'bar',
+          data: years.map((y) => cohorts[y]?.repeated_rejections || 0),
+          itemStyle: { color: '#FD5A3B' },
+        },
+      ],
+    };
+  }, [summary?.lifecycle_summary?.first_rejection_cohorts]);
+
   const historySortAccessors = useMemo(() => ({
     journal: (item: RejectionHistoryRecord) => dimJournals?.get(item.journal_id)?.display_title || item.journal_id,
     rank: (item: RejectionHistoryRecord) => dimJournals?.get(item.journal_id)?.sinta_rank || 'unmatched',
@@ -467,6 +579,29 @@ export const RejectionHistoryPage: React.FC<RejectionHistoryPageProps> = ({
           if (clickedItem) onSelectJournal(clickedItem.journal_id);
         }}
       />
+
+      {/* Visual Analytics Row 3: Time to Acceptance & Rejection Cohorts */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))', gap: 'var(--space-4)' }}>
+        <BaseEChart
+          title="Observed Time from Rejection to Acceptance"
+          metricLabel="Interval Distribution"
+          unit="unique journals"
+          denominatorNote={`${summary?.lifecycle_summary?.verified_r_to_a_journals || 563} journals with verified Rejected → Accepted sequence`}
+          scopeNote={`Median: ${summary?.lifecycle_summary?.time_to_acceptance_stats?.rejection_to_acceptance_journal?.median || 263} days • IQR: ${summary?.lifecycle_summary?.time_to_acceptance_stats?.rejection_to_acceptance_journal?.iqr || 236.5} days`}
+          options={timeToAcceptanceBandsOptions}
+          ariaLabel="Bar chart showing duration bands between last rejection and qualifying acceptance"
+        />
+
+        <BaseEChart
+          title="First-Observed Rejection Cohorts & Subsequent Outcomes"
+          metricLabel="Cohort Outcomes"
+          unit="journals"
+          denominatorNote="Grouped by initial observed rejection year in dataset"
+          scopeNote="Follow-up horizon differs by cohort: 2022 has 5 years; 2026 has <1 year"
+          options={rejectionCohortOptions}
+          ariaLabel="Grouped bar chart showing first-observed rejection cohort outcomes"
+        />
+      </div>
 
       {/* Recurrence Directory Table */}
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>

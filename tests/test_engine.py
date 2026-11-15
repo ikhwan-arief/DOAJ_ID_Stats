@@ -124,6 +124,39 @@ class EngineIntegrationTests(unittest.TestCase):
             self.assertLessEqual(len(samples), 10)
             self.assertTrue(all(value.split(":", 1)[0] in {"rejected", "withdrawn", "sinta"} for value in samples))
 
+    def test_advanced_analytics_transitions_and_matrix_reconcile(self) -> None:
+        summary = self.outputs["summary_public.json"]
+        lifecycle = summary["lifecycle_summary"]
+        
+        # Package A: Verified chronological transitions
+        self.assertEqual(lifecycle["verified_r_to_a_journals"], 563)
+        self.assertEqual(lifecycle["verified_a_to_w_journals"], 123)
+        self.assertEqual(lifecycle["verified_w_to_a_journals"], 29)
+        self.assertEqual(lifecycle["verified_a_w_a_journals"], 7)
+        self.assertIn("top_lifecycle_pathways", lifecycle)
+        self.assertGreaterEqual(len(lifecycle["top_lifecycle_pathways"]), 10)
+
+        # Package B: Duration stats
+        stats = lifecycle["time_to_acceptance_stats"]
+        self.assertEqual(stats["rejection_to_acceptance_journal"]["count"], 563)
+        self.assertEqual(stats["rejection_to_acceptance_journal"]["median"], 263.0)
+        self.assertEqual(stats["withdrawal_to_acceptance_journal"]["count"], 29)
+        self.assertEqual(stats["withdrawal_to_acceptance_journal"]["median"], 541.0)
+
+        # Package C: SINTA Lifecycle Matrix
+        matrix = lifecycle["sinta_lifecycle_matrix"]
+        self.assertEqual(matrix["Overall"]["total_sinta_journals"], 16620)
+        self.assertEqual(matrix["Overall"]["currently_indexed"]["count"], 2500)
+        self.assertEqual(matrix["Overall"]["verified_r_to_a"]["count"], 523)
+        self.assertEqual(matrix["Overall"]["verified_w_to_a"]["count"], 27)
+        self.assertEqual(matrix["Overall"]["verified_a_w_a"]["count"], 7)
+
+        # Package D: Cohorts
+        annual_cohorts = lifecycle["annual_accepted_cohorts"]
+        self.assertEqual(len(annual_cohorts), 5)
+        rej_cohorts = lifecycle["first_rejection_cohorts"]
+        self.assertEqual(len(rej_cohorts), 5)
+
 
 if __name__ == "__main__":
     unittest.main()

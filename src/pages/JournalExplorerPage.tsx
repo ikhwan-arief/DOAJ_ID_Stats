@@ -793,6 +793,15 @@ export const JournalExplorerPage: React.FC<JournalExplorerPageProps> = ({
                   {activeSinta?.accreditation_raw || activeJournal.sinta_rank}
                 </div>
               </div>
+
+              <div>
+                <span style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)', textTransform: 'uppercase' }}>
+                  Lifecycle Pathway
+                </span>
+                <div style={{ fontWeight: 600, fontSize: 'var(--text-sm)', marginTop: '2px', fontFamily: 'var(--font-mono)', color: 'var(--dark-navy)' }}>
+                  {activeJournal.lifecycle_pathway || '—'}
+                </div>
+              </div>
             </div>
 
             {/* Subject classifications if available */}

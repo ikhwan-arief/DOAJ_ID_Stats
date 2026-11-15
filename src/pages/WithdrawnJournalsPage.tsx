@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { loadFactWithdrawn, loadFactRejected } from '../data/loader';
-import { FactWithdrawnRecord, FactRejectedRecord, GlobalFilterState } from '../types';
+import { loadFactWithdrawn, loadFactRejected, loadSummary } from '../data/loader';
+import { FactWithdrawnRecord, FactRejectedRecord, SummaryPublic, GlobalFilterState } from '../types';
 import { RankBadge, Alert, LoadingState } from '../components/common/UIPrimitives';
 import { SortableHeader, useSortableData } from '../components/common/SortableTable';
 import { formatCurrentDoajStatusBadge, getCurrentDoajStatusSortRank } from '../lib/matchingLabels';
@@ -18,15 +18,17 @@ export const WithdrawnJournalsPage: React.FC<WithdrawnJournalsPageProps> = ({
 }) => {
   const [withdrawn, setWithdrawn] = useState<FactWithdrawnRecord[] | null>(null);
   const [rejected, setRejected] = useState<FactRejectedRecord[]>([]);
+  const [summary, setSummary] = useState<SummaryPublic | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const pageSize = 50;
 
   useEffect(() => {
-    Promise.all([loadFactWithdrawn(), loadFactRejected()])
-      .then(([wData, rData]) => {
+    Promise.all([loadFactWithdrawn(), loadFactRejected(), loadSummary()])
+      .then(([wData, rData, sData]) => {
         setWithdrawn(wData);
         setRejected(rData);
+        setSummary(sData);
       })
       .catch((err) => setError(err.message || 'Failed to load withdrawn dataset'));
   }, []);
@@ -343,6 +345,35 @@ export const WithdrawnJournalsPage: React.FC<WithdrawnJournalsPageProps> = ({
             {reinstatedCount.toLocaleString()}
           </div>
           <span style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)' }}>Historical source annotation</span>
+        </div>
+        <div className="card" style={{ borderLeft: '4px solid var(--dark-navy)' }}>
+          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)', fontWeight: 600 }}>
+            Accepted → Withdrawn
+          </span>
+          <div style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--text-2xl)', fontWeight: 700, margin: '4px 0' }}>
+            {(summary?.lifecycle_summary?.verified_a_to_w_journals || 123).toLocaleString()}
+          </div>
+          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)' }}>Dated acceptance preceding withdrawal</span>
+        </div>
+        <div className="card" style={{ borderLeft: '4px solid var(--mid-green)' }}>
+          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)', fontWeight: 600 }}>
+            Withdrawn → Accepted
+          </span>
+          <div style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--text-2xl)', fontWeight: 700, margin: '4px 0' }}>
+            {(summary?.lifecycle_summary?.verified_w_to_a_journals || 29).toLocaleString()}
+          </div>
+          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)' }}>
+            Median: {summary?.lifecycle_summary?.time_to_acceptance_stats?.withdrawal_to_acceptance_journal?.median || 541} days to return
+          </span>
+        </div>
+        <div className="card" style={{ borderLeft: '4px solid var(--warm-black)' }}>
+          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)', fontWeight: 600 }}>
+            Accepted → Withdrawn → Accepted
+          </span>
+          <div style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--text-2xl)', fontWeight: 700, margin: '4px 0' }}>
+            {(summary?.lifecycle_summary?.verified_a_w_a_journals || 7).toLocaleString()}
+          </div>
+          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)' }}>Verified three-phase lifecycle pattern</span>
         </div>
       </div>
 

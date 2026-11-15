@@ -12,6 +12,7 @@ from datetime import datetime
 import hashlib
 import json
 from pathlib import Path
+import statistics
 from typing import Any
 
 from .contracts import SOURCE_CONTRACTS
@@ -427,6 +428,309 @@ class DataEngine:
             if jid in w_set:
                 freq_outcome_data[b]["withdrawn_overlap"] += 1
 
+        # =========================================================================
+        # ADVANCED ANALYTICS (Packages A, B, C, D)
+        # =========================================================================
+        # 1. Map all dated historical events chronologically per journal
+        j_events = defaultdict(list)
+        for r in fact_rejected:
+            if r.get("event_day"):
+                j_events[r["journal_id"]].append(("R", r["event_day"], r["source_record_id"]))
+        for a in fact_accepted:
+            if a.get("added_day"):
+                j_events[a["journal_id"]].append(("A", a["added_day"], a["source_record_id"]))
+        for w in fact_withdrawn:
+            d = w.get("last_withdrawn_day") or (f"{w.get('last_withdrawn_year')}-01-01" if w.get("last_withdrawn_year") else None)
+            if d:
+                j_events[w["journal_id"]].append(("W", d, w["source_record_id"]))
+
+        for jid in j_events:
+            j_events[jid].sort(key=lambda x: (x[1], x[0]))
+
+        # Helper for distribution stats
+        def _calc_stats(vals: list[int | float]) -> dict[str, Any]:
+            if not vals:
+                return {"count": 0, "mean": 0.0, "median": 0.0, "min": 0, "max": 0, "p25": 0.0, "p75": 0.0, "p90": 0.0, "iqr": 0.0}
+            s = sorted(vals)
+            n = len(s)
+            def pctl(p: float) -> float:
+                k = (n - 1) * p
+                f = int(k)
+                c = f + 1 if f + 1 < n else f
+                return s[f] + (s[c] - s[f]) * (k - f)
+            p25 = pctl(0.25)
+            p75 = pctl(0.75)
+            return {
+                "count": n,
+                "mean": round(statistics.mean(s), 1),
+                "median": round(statistics.median(s), 1),
+                "min": min(s),
+                "max": max(s),
+                "p25": round(p25, 1),
+                "p75": round(p75, 1),
+                "p90": round(pctl(0.90), 1),
+                "iqr": round(p75 - p25, 1),
+            }
+
+        def _get_bands(vals: list[int | float]) -> dict[str, int]:
+            bands = {"0–30 days": 0, "31–90 days": 0, "91–180 days": 0, "181–365 days": 0, "> 365 days": 0}
+            for v in vals:
+                if v <= 30:
+                    bands["0–30 days"] += 1
+                elif v <= 90:
+                    bands["31–90 days"] += 1
+                elif v <= 180:
+                    bands["91–180 days"] += 1
+                elif v <= 365:
+                    bands["181–365 days"] += 1
+                else:
+                    bands["> 365 days"] += 1
+            return bands
+
+        # Package A: Lifecycle Pathways & Verified Transitions
+        r_to_a_jids = set()
+        a_to_w_jids = set()
+        w_to_a_jids = set()
+        a_w_a_jids = set()
+        r_before_a_dist = {"1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6+": 0}
+        r_to_a_episodes_count = 0
+        w_to_a_episodes_count = 0
+
+        dur_r_to_a_journal = []
+        dur_r_to_a_episodes = []
+        dur_w_to_a_journal = []
+        dur_w_to_a_episodes = []
+        dur_r_to_r = []
+
+        pathway_by_jid = {}
+        pathway_counts = Counter()
+        last_event_by_jid = {}
+
+        for jid, evs in j_events.items():
+            r_evs = [e for e in evs if e[0] == "R"]
+            a_evs = [e for e in evs if e[0] == "A"]
+            w_evs = [e for e in evs if e[0] == "W"]
+            r_dates = [e[1] for e in r_evs]
+            a_dates = [e[1] for e in a_evs]
+            w_dates = [e[1] for e in w_evs]
+
+            # Sequence & Last historical event
+            seq = " -> ".join(e[0] for e in evs)
+            pathway_by_jid[jid] = seq
+            pathway_counts[seq] += 1
+            last_event_by_jid[jid] = evs[-1][0]
+
+            # R -> R recurrence intervals
+            for i in range(len(r_evs) - 1):
+                d1 = datetime.strptime(r_evs[i][1], "%Y-%m-%d")
+                d2 = datetime.strptime(r_evs[i+1][1], "%Y-%m-%d")
+                dur_r_to_r.append((d2 - d1).days)
+
+            # R -> A
+            first_qa = None
+            has_r_a = False
+            for a in a_evs:
+                prec_r = [r for r in r_evs if r[1] < a[1]]
+                if prec_r:
+                    has_r_a = True
+                    r_to_a_episodes_count += 1
+                    latest_r = max(prec_r, key=lambda x: x[1])
+                    d1 = datetime.strptime(latest_r[1], "%Y-%m-%d")
+                    d2 = datetime.strptime(a[1], "%Y-%m-%d")
+                    diff = (d2 - d1).days
+                    dur_r_to_a_episodes.append(diff)
+                    if first_qa is None:
+                        first_qa = a
+                        dur_r_to_a_journal.append(diff)
+
+            if has_r_a:
+                r_to_a_jids.add(jid)
+                first_qualifying_a = min([ad for ad in a_dates if any(rd < ad for rd in r_dates)])
+                rejs_before = sum(1 for rd in r_dates if rd < first_qualifying_a)
+                b = str(rejs_before) if rejs_before < 6 else "6+"
+                r_before_a_dist[b] += 1
+
+            # A -> W
+            if any(any(ad < wd for ad in a_dates) for wd in w_dates):
+                a_to_w_jids.add(jid)
+
+            # W -> A
+            first_qw = None
+            has_w_a = False
+            for a in a_evs:
+                prec_w = [w for w in w_evs if w[1] < a[1]]
+                if prec_w:
+                    has_w_a = True
+                    w_to_a_episodes_count += 1
+                    latest_w = max(prec_w, key=lambda x: x[1])
+                    d1 = datetime.strptime(latest_w[1], "%Y-%m-%d")
+                    d2 = datetime.strptime(a[1], "%Y-%m-%d")
+                    diff = (d2 - d1).days
+                    dur_w_to_a_episodes.append(diff)
+                    if first_qw is None:
+                        first_qw = a
+                        dur_w_to_a_journal.append(diff)
+
+            if has_w_a:
+                w_to_a_jids.add(jid)
+
+            # A -> W -> A
+            has_awa = False
+            for i in range(len(evs)):
+                if evs[i][0] == "A":
+                    for j in range(i+1, len(evs)):
+                        if evs[j][0] == "W" and evs[j][1] > evs[i][1]:
+                            for k in range(j+1, len(evs)):
+                                if evs[k][0] == "A" and evs[k][1] > evs[j][1]:
+                                    has_awa = True
+                                    break
+            if has_awa:
+                a_w_a_jids.add(jid)
+
+        # A6. Last Historical Event x Current DOAJ Status
+        last_event_crosstab = {
+            "R": {"currently_indexed": 0, "not_found": 0, "requires_review": 0},
+            "A": {"currently_indexed": 0, "not_found": 0, "requires_review": 0},
+            "W": {"currently_indexed": 0, "not_found": 0, "requires_review": 0},
+        }
+        for jid, last_ev in last_event_by_jid.items():
+            st = "currently_indexed" if jid in current_resolved_jids else ("requires_review" if jid in current_unresolved_jids else "not_found")
+            last_event_crosstab[last_ev][st] += 1
+
+        # Top pathways
+        top_pathways = [
+            {"pathway": p, "count": c}
+            for p, c in pathway_counts.most_common(12)
+        ]
+
+        # Package B: Duration Summaries
+        time_to_acceptance_stats = {
+            "rejection_to_acceptance_journal": _calc_stats(dur_r_to_a_journal),
+            "rejection_to_acceptance_episodes": _calc_stats(dur_r_to_a_episodes),
+            "rejection_to_acceptance_bands": _get_bands(dur_r_to_a_journal),
+            "withdrawal_to_acceptance_journal": _calc_stats(dur_w_to_a_journal),
+            "withdrawal_to_acceptance_episodes": _calc_stats(dur_w_to_a_episodes),
+            "withdrawal_to_acceptance_bands": _get_bands(dur_w_to_a_journal),
+            "rejection_recurrence_intervals": _calc_stats(dur_r_to_r),
+            "rejection_recurrence_bands": _get_bands(dur_r_to_r),
+        }
+
+        # Package C: SINTA Lifecycle Matrix
+        sinta_by_rank = defaultdict(set)
+        all_sinta_jids = set()
+        for s in sinta_records:
+            jid = s["journal_id"]
+            rank = s["sinta_rank"]
+            sinta_by_rank[rank].add(jid)
+            all_sinta_jids.add(jid)
+
+        sinta_lifecycle_matrix = {}
+        for rank in (*RANKS, "Overall"):
+            jids = all_sinta_jids if rank == "Overall" else sinta_by_rank[rank]
+            tot = len(jids)
+            curr = len(jids & current_resolved_jids)
+            rej = sum(1 for j in jids if j in r_set)
+            acc = sum(1 for j in jids if j in a_set)
+            withd = sum(1 for j in jids if j in w_set)
+            rep_rej = sum(1 for j in jids if len(rej_by_jid.get(j, [])) > 1)
+            
+            r_a = len(jids & r_to_a_jids)
+            a_w = len(jids & a_to_w_jids)
+            w_a = len(jids & w_to_a_jids)
+            a_w_a = len(jids & a_w_a_jids)
+            withd_and_curr = len(jids & w_set & current_resolved_jids)
+            
+            sinta_lifecycle_matrix[rank] = {
+                "total_sinta_journals": tot,
+                "currently_indexed": {"count": curr, "percentage": round(curr / tot * 100, 2) if tot else 0.0},
+                "historical_rejected": {"count": rej, "percentage": round(rej / tot * 100, 2) if tot else 0.0},
+                "historical_accepted": {"count": acc, "percentage": round(acc / tot * 100, 2) if tot else 0.0},
+                "historical_withdrawn": {"count": withd, "percentage": round(withd / tot * 100, 2) if tot else 0.0},
+                "repeated_rejections": {"count": rep_rej, "percentage": round(rep_rej / tot * 100, 2) if tot else 0.0},
+                "verified_r_to_a": {"count": r_a, "percentage": round(r_a / tot * 100, 2) if tot else 0.0},
+                "verified_a_to_w": {"count": a_w, "percentage": round(a_w / tot * 100, 2) if tot else 0.0},
+                "verified_w_to_a": {"count": w_a, "percentage": round(w_a / tot * 100, 2) if tot else 0.0},
+                "verified_a_w_a": {"count": a_w_a, "percentage": round(a_w_a / tot * 100, 2) if tot else 0.0},
+                "withdrawn_and_currently_indexed": {"count": withd_and_curr, "percentage": round(withd_and_curr / tot * 100, 2) if tot else 0.0},
+            }
+
+        # Package D: Cohort & Recurrence Analysis
+        acc_by_yr = defaultdict(list)
+        for a in fact_accepted:
+            yr = a.get("added_year")
+            if yr:
+                acc_by_yr[yr].append(a)
+
+        annual_accepted_cohorts = {}
+        j_r_dates = {j: [e[1] for e in evs if e[0] == "R"] for j, evs in j_events.items()}
+        j_w_dates = {j: [e[1] for e in evs if e[0] == "W"] for j, evs in j_events.items()}
+        j_a_dates = {j: [e[1] for e in evs if e[0] == "A"] for j, evs in j_events.items()}
+
+        for yr in sorted(acc_by_yr.keys()):
+            records = acc_by_yr[yr]
+            unique_jids = sorted(list(set(a["journal_id"] for a in records)))
+            prior_r = sum(1 for j in unique_jids if any(rd < f"{yr}-12-31" for rd in j_r_dates.get(j, [])))
+            prior_w = sum(1 for j in unique_jids if any(wd < f"{yr}-12-31" for wd in j_w_dates.get(j, [])))
+            curr_idx = sum(1 for j in unique_jids if j in current_resolved_jids)
+            annual_accepted_cohorts[str(yr)] = {
+                "source_records": len(records),
+                "unique_journals": len(unique_jids),
+                "prior_rejected": prior_r,
+                "prior_withdrawn": prior_w,
+                "currently_indexed": curr_idx,
+            }
+
+        # First-observed rejection cohorts
+        first_rej_year = {}
+        for r in fact_rejected:
+            jid = r["journal_id"]
+            yr = r.get("event_year")
+            if yr:
+                if jid not in first_rej_year or yr < first_rej_year[jid]:
+                    first_rej_year[jid] = yr
+
+        rej_cohorts = defaultdict(list)
+        for jid, yr in first_rej_year.items():
+            rej_cohorts[yr].append(jid)
+
+        first_rejection_cohorts = {}
+        for yr in sorted(rej_cohorts.keys()):
+            jids = rej_cohorts[yr]
+            total = len(jids)
+            later_a = sum(1 for j in jids if any(ad > f"{yr}-01-01" for ad in j_a_dates.get(j, [])))
+            curr = sum(1 for j in jids if j in current_resolved_jids)
+            later_w = sum(1 for j in jids if any(wd > f"{yr}-01-01" for wd in j_w_dates.get(j, [])))
+            rep = sum(1 for j in jids if len(j_r_dates.get(j, [])) > 1)
+            
+            intervals = []
+            for j in jids:
+                prec_r = [rd for rd in j_r_dates.get(j, []) if rd.startswith(str(yr))]
+                if prec_r:
+                    earliest_r = min(prec_r)
+                    pos_a = [ad for ad in j_a_dates.get(j, []) if ad > earliest_r]
+                    if pos_a:
+                        d1 = datetime.strptime(earliest_r, "%Y-%m-%d")
+                        d2 = datetime.strptime(min(pos_a), "%Y-%m-%d")
+                        intervals.append((d2 - d1).days)
+            med_interval = round(statistics.median(intervals), 1) if intervals else None
+            
+            first_rejection_cohorts[str(yr)] = {
+                "cohort_journals": total,
+                "with_later_accepted": later_a,
+                "currently_indexed": curr,
+                "with_later_withdrawn": later_w,
+                "repeated_rejections": rep,
+                "median_days_to_accepted": med_interval,
+            }
+
+        # Recurrence and subsequent acceptance distribution
+        freq_outcome_data_enhanced = {}
+        for b in freq_outcome_buckets:
+            freq_outcome_data_enhanced[b] = {
+                **freq_outcome_data[b],
+                "verified_r_to_a": sum(1 for jid in r_to_a_jids if (str(len(rej_by_jid.get(jid, []))) == b or (len(rej_by_jid.get(jid, [])) >= 6 and b == "6+"))),
+            }
+
         # SINTA rank coverage in current DOAJ
         rank_source_counts = Counter(record["sinta_rank"] for record in sinta_records)
         rank_journal_counts = Counter(resolved_rank.values())
@@ -500,7 +804,24 @@ class DataEngine:
                 "withdrawn_and_currently_indexed": len(withdrawn_and_current),
                 "rejected_and_withdrawn": len(rejected_and_withdrawn),
                 "rejected_accepted_and_indexed": len(rejected_accepted_current),
-                "rejection_frequency_outcomes": freq_outcome_data,
+                "rejection_frequency_outcomes": freq_outcome_data_enhanced,
+                # Package A: Verified chronological transitions
+                "verified_r_to_a_journals": len(r_to_a_jids),
+                "verified_r_to_a_episodes": r_to_a_episodes_count,
+                "rejections_before_acceptance_distribution": r_before_a_dist,
+                "verified_a_to_w_journals": len(a_to_w_jids),
+                "verified_w_to_a_journals": len(w_to_a_jids),
+                "verified_w_to_a_episodes": w_to_a_episodes_count,
+                "verified_a_w_a_journals": len(a_w_a_jids),
+                "last_historical_event_crosstab": last_event_crosstab,
+                "top_lifecycle_pathways": top_pathways,
+                # Package B: Durations & Interval statistics
+                "time_to_acceptance_stats": time_to_acceptance_stats,
+                # Package C: SINTA Lifecycle Matrix
+                "sinta_lifecycle_matrix": sinta_lifecycle_matrix,
+                # Package D: Cohort Analyses
+                "annual_accepted_cohorts": annual_accepted_cohorts,
+                "first_rejection_cohorts": first_rejection_cohorts,
             },
             "current_doaj_summary": {
                 "total_source_records": len(rows["doaj_current"]),
@@ -556,6 +877,12 @@ class DataEngine:
                     "current_doaj_status": cur_status,
                     "current_doaj_profile_url": details.get("doaj_profile_url"),
                     "current_doaj_publisher": details.get("publisher"),
+                    "lifecycle_pathway": pathway_by_jid.get(journal_id, "None"),
+                    "last_historical_event": last_event_by_jid.get(journal_id, "None"),
+                    "has_verified_r_to_a": journal_id in r_to_a_jids,
+                    "has_verified_a_to_w": journal_id in a_to_w_jids,
+                    "has_verified_w_to_a": journal_id in w_to_a_jids,
+                    "has_verified_a_w_a": journal_id in a_w_a_jids,
                 }
             )
 
@@ -575,6 +902,10 @@ class DataEngine:
                 record["source_record_id"] for record in records
                 if record["event_day"] and day_counts[record["event_day"]] > 1
             )
+        # Evidence and lifecycle coverage indicators
+        total_unique_resolved = len(r_set | a_set | w_set)
+        multi_event_jids = sum(1 for evs in j_events.values() if len(evs) > 1)
+        fully_orderable_jids = sum(1 for evs in j_events.values() if all(e[1] for e in evs))
         data_quality = {
             "schema_version": SCHEMA_VERSION,
             "review_samples_are_source_ids_only": True,
@@ -590,6 +921,12 @@ class DataEngine:
                 "current_doaj_indonesia_records": len(doaj_current_id_rows),
                 "current_doaj_non_indonesia_filtered": len(rows["doaj_current"]) - len(doaj_current_id_rows),
                 "current_doaj_ambiguous_records": len(current_unresolved_jids),
+                # Lifecycle reconstruction coverage indicators
+                "total_resolved_historical_journals": total_unique_resolved,
+                "journals_with_multiple_dated_events": multi_event_jids,
+                "journals_with_fully_orderable_history": fully_orderable_jids,
+                "journals_with_verified_transitions": len(r_to_a_jids | a_to_w_jids | w_to_a_jids),
+                "journals_with_snapshot_confirmation": len(current_resolved_jids),
             },
             "deterministic_review_samples": {
                 "strict_matches": [audit["source_record_id"] for audit in audits if audit["strict_status"] == "matched"][:10],
@@ -601,9 +938,10 @@ class DataEngine:
                 "Record identity is not evidence of a distinct application or decision.",
                 "Cross-medium matches are excluded from strict headline metrics.",
                 "Placeholder-only ISSNs never establish journal identity.",
-                "Accepted export decision dates are unverified; Added on Date represents database creation, not acceptance decision.",
-                "SINTA ranks describe the 2026-11-15 snapshot, not historical rank.",
-                "Current DOAJ snapshot describes indexing status on 2026-11-15.",
+                "Accepted export decision dates are represented by 'Added on Date' as an analytical convention.",
+                "SINTA ranks describe the 2026-11-15 snapshot, not historical rank at event time.",
+                "Current DOAJ snapshot describes indexing status on 2026-11-15 as a terminal observation.",
+                "Observation-window limitations: Earlier rejections or withdrawals prior to 2022 are not captured.",
             ],
         }
         return {

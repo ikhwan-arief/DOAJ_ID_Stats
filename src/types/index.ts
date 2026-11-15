@@ -38,6 +38,70 @@ export interface CurrentDoajSummary {
   withdrawn_journals_current_status: Record<string, number>;
 }
 
+export interface DistributionStats {
+  count: number;
+  mean: number;
+  median: number;
+  min: number;
+  max: number;
+  p25: number;
+  p75: number;
+  p90: number;
+  iqr: number;
+}
+
+export interface TimeToAcceptanceStats {
+  rejection_to_acceptance_journal: DistributionStats;
+  rejection_to_acceptance_episodes: DistributionStats;
+  rejection_to_acceptance_bands: Record<string, number>;
+  withdrawal_to_acceptance_journal: DistributionStats;
+  withdrawal_to_acceptance_episodes: DistributionStats;
+  withdrawal_to_acceptance_bands: Record<string, number>;
+  rejection_recurrence_intervals: DistributionStats;
+  rejection_recurrence_bands: Record<string, number>;
+}
+
+export interface SintaLifecycleMatrixCell {
+  count: number;
+  percentage: number;
+}
+
+export interface SintaLifecycleMatrixRow {
+  total_sinta_journals: number;
+  currently_indexed: SintaLifecycleMatrixCell;
+  historical_rejected: SintaLifecycleMatrixCell;
+  historical_accepted: SintaLifecycleMatrixCell;
+  historical_withdrawn: SintaLifecycleMatrixCell;
+  repeated_rejections: SintaLifecycleMatrixCell;
+  verified_r_to_a: SintaLifecycleMatrixCell;
+  verified_a_to_w: SintaLifecycleMatrixCell;
+  verified_w_to_a: SintaLifecycleMatrixCell;
+  verified_a_w_a: SintaLifecycleMatrixCell;
+  withdrawn_and_currently_indexed: SintaLifecycleMatrixCell;
+}
+
+export interface AnnualAcceptedCohort {
+  source_records: number;
+  unique_journals: number;
+  prior_rejected: number;
+  prior_withdrawn: number;
+  currently_indexed: number;
+}
+
+export interface FirstRejectionCohort {
+  cohort_journals: number;
+  with_later_accepted: number;
+  currently_indexed: number;
+  with_later_withdrawn: number;
+  repeated_rejections: number;
+  median_days_to_accepted: number | null;
+}
+
+export interface TopLifecyclePathway {
+  pathway: string;
+  count: number;
+}
+
 export interface LifecycleSummary {
   rejected_journals_total: number;
   accepted_journals_total: number;
@@ -57,8 +121,23 @@ export interface LifecycleSummary {
       currently_indexed: number;
       accepted_overlap: number;
       withdrawn_overlap: number;
+      verified_r_to_a?: number;
     }
   >;
+  // Advanced Analytics
+  verified_r_to_a_journals?: number;
+  verified_r_to_a_episodes?: number;
+  rejections_before_acceptance_distribution?: Record<string, number>;
+  verified_a_to_w_journals?: number;
+  verified_w_to_a_journals?: number;
+  verified_w_to_a_episodes?: number;
+  verified_a_w_a_journals?: number;
+  last_historical_event_crosstab?: Record<string, Record<string, number>>;
+  top_lifecycle_pathways?: TopLifecyclePathway[];
+  time_to_acceptance_stats?: TimeToAcceptanceStats;
+  sinta_lifecycle_matrix?: Record<string, SintaLifecycleMatrixRow>;
+  annual_accepted_cohorts?: Record<string, AnnualAcceptedCohort>;
+  first_rejection_cohorts?: Record<string, FirstRejectionCohort>;
 }
 
 export interface SummaryPublic {
@@ -252,6 +331,12 @@ export interface DimJournalRecord {
   current_doaj_status?: CurrentDoajStatus;
   current_doaj_profile_url?: string | null;
   current_doaj_publisher?: string | null;
+  lifecycle_pathway?: string;
+  last_historical_event?: string;
+  has_verified_r_to_a?: boolean;
+  has_verified_a_to_w?: boolean;
+  has_verified_w_to_a?: boolean;
+  has_verified_a_w_a?: boolean;
 }
 
 export interface SintaSnapshotRecord {
@@ -311,6 +396,11 @@ export interface DataQualityPublic {
     current_doaj_indonesia_records?: number;
     current_doaj_non_indonesia_filtered?: number;
     current_doaj_ambiguous_records?: number;
+    total_resolved_historical_journals?: number;
+    journals_with_multiple_dated_events?: number;
+    journals_with_fully_orderable_history?: number;
+    journals_with_verified_transitions?: number;
+    journals_with_snapshot_confirmation?: number;
   };
   deterministic_review_samples: {
     placeholder_records: string[];

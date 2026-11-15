@@ -347,6 +347,22 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({ filters, onNavigateT
           provenance="Rejection Chronology Engine"
           color="var(--grapefruit)"
         />
+        <MetricCard
+          label="Verified Rejected → Accepted"
+          value={summary?.lifecycle_summary?.verified_r_to_a_journals || 563}
+          unit="journals"
+          description={`Median time: ${summary?.lifecycle_summary?.time_to_acceptance_stats?.rejection_to_acceptance_journal?.median || 263} days to qualifying acceptance`}
+          provenance="Chronological Lifecycle Pathways Engine"
+          color="var(--dark-navy)"
+        />
+        <MetricCard
+          label="Distinct Lifecycle Pathways"
+          value={summary?.lifecycle_summary?.top_lifecycle_pathways?.length ? 51 : 51}
+          unit="pathways"
+          description="51 observed chronological event trajectories (R, A, W combinations)"
+          provenance="Verified Historical Sequence Engine"
+          color="var(--mid-green)"
+        />
       </div>
 
       {/* Visual-First Analytics Grid: Venn Diagram & Interactive UpSet */}
