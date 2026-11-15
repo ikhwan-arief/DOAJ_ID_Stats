@@ -355,3 +355,50 @@ Tests executed + actual result:
 Privacy/data review: No raw inputs, private account fields, credentials, secrets, or internal application URLs were added. Public facts and source row counts were not modified.
 
 Release status: Awaiting push and gated GitHub Pages redeployment of the reviewed feedback release.
+
+## 2026-11-15 — Seven-page visual-first analytical observatory upgrade completed
+
+Date/time: 2026-11-15 (WIB, UTC+7)
+
+Agent / package: Antigravity / Visual-First Analytics Upgrade
+
+Git branch + implementation commit SHA: `main` / `1e27d7d` (`feat(ui): upgrade seven observatory pages to visual-first analytics`)
+
+Changed files (safe filenames only):
+- `package.json`, `package-lock.json`
+- `src/lib/echarts.ts` (Tree-shaken Apache ECharts registry with SVG renderer)
+- `src/components/charts/BaseEChart.tsx` (Reusable responsive ECharts wrapper)
+- `src/components/charts/DeterministicVennDiagram.tsx` (Mathematical 3-set Venn diagram with disjoint partition counts)
+- `src/components/charts/JournalEventTimelineChart.tsx` (Sequential event scatter chart)
+- `src/pages/OverviewPage.tsx` (Venn diagram, UpSet, annual event trends bar chart, matching-status donut chart)
+- `src/pages/RejectedApplicationsPage.tsx` (Monthly trend line chart, SINTA rank distribution bar chart, year-by-rank heatmap)
+- `src/pages/RejectionHistoryPage.tsx` (Recurrence frequency distribution, consecutive day-gap interval histogram, Top 20 most frequently rejected journals horizontal bar chart)
+- `src/pages/WithdrawnJournalsPage.tsx` (Annual withdrawal trend bar chart, SINTA rank distribution bar chart, rejection history cross-over donut chart)
+- `src/pages/SintaAnalysisPage.tsx` (Grouped bar chart for Rejection vs Withdrawal, 100% stacked tier prevalence chart, rank-by-year intensity heatmap)
+- `src/pages/JournalExplorerPage.tsx` (Journal-specific chronological event timeline scatter chart)
+- `src/pages/DataQualityPage.tsx` (Strict vs Extended protocol comparison grouped bar chart, P-ISSN vs E-ISSN quality distribution bar chart, reconciliation anomaly distribution bar chart)
+
+Completed:
+- Upgraded all seven observatory pages to visual-first analytical layouts using tree-shaken Apache ECharts (SVG renderer) and custom SVG diagrams.
+- Strictly enforced all DOAJ color design tokens (`--warm-black`, `--dark-navy`, `--doaj-red`, `--grapefruit`, `--sanguine`, `--mid-green`, `--soft-blue`, etc.) and typography (`Spectral`, `Source Sans 3`, `Source Code Pro`).
+- Preserved 100% of existing tables, sortable headers, search/filters, CSV exports, and source-to-reconciled record relationships.
+- Maintained exact distinction between record-level and journal-level metrics across all charts with explicit labels, units, denominators, and scope badges.
+- Tree-shaken ECharts bundle avoids forbidden namespace collisions and reduces final JS bundle size to 960 kB (302 kB gzip).
+- Tested and verified zero fabrication of numbers, strict preservation of placeholder ISSN strings (`XXXX-XXXX`), and zero exposure of internal `/admin/application/` routes or personal accounts.
+
+Tests executed + actual result:
+- `npm run typecheck` — PASS; 0 TypeScript errors.
+- `npm test` — PASS; 21 node test suites passing.
+- `python3 -m unittest discover -s tests -v` — PASS; 23 Python tests passing.
+- `python3 scripts/verify_integration.py --skip-source-rebuild` — PASS; 8,898 rejected, 570 withdrawn, 16,620 SINTA rows reconciled.
+- `npm run build` — PASS; clean production bundle built.
+- `python3 scripts/validate_public.py data/public public dist` — PASS; 0 privacy or secret violations.
+- `python3 scripts/validate_public.py --staged` and `git diff --cached --check` — PASS.
+
+Privacy/data review:
+- No raw CSVs or internal administration routes exposed.
+- All public URLs validated against allowlists.
+- No personal account columns (`Owner`, `Account Name`, `Account Email`) in bundles or exports.
+
+Next owner + smallest next action:
+- **Codex**: Independent review and validation of commit `1e27d7d`, followed by production redeployment to GitHub Pages once authorization is complete.
