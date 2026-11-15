@@ -3,6 +3,8 @@ import { loadRejectionHistory, loadDimJournals, loadSummary } from '../data/load
 import { RejectionHistoryRecord, DimJournalRecord, SummaryPublic, GlobalFilterState } from '../types';
 import { RankBadge, Alert, LoadingState } from '../components/common/UIPrimitives';
 import { SortableHeader, useSortableData } from '../components/common/SortableTable';
+import { BaseEChart } from '../components/charts/BaseEChart';
+import * as echarts from '../lib/echarts';
 
 interface RejectionHistoryPageProps {
   filters: GlobalFilterState;
@@ -62,6 +64,184 @@ export const RejectionHistoryPage: React.FC<RejectionHistoryPageProps> = ({
     });
   }, [history, dimJournals, filters]);
 
+  // Visual Analytics Computations
+  const historyAnalytics = useMemo(() => {
+    // 1. Recurrence Histogram (1, 2, 3, 4, 5, 6+)
+    const histBuckets: Record<string, number> = { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0, '6+': 0 };
+    for (const h of filteredHistory) {
+      const c = h.source_record_count;
+      if (c === 1) histBuckets['1']++;
+      else if (c === 2) histBuckets['2']++;
+      else if (c === 3) histBuckets['3']++;
+      else if (c === 4) histBuckets['4']++;
+      else if (c === 5) histBuckets['5']++;
+      else histBuckets['6+']++;
+    }
+
+    // 2. Re-Application Gap Interval Histogram
+    const allGaps = filteredHistory.flatMap((h) => h.consecutive_day_gaps);
+    const gapBuckets = {
+      '≤30 days': allGaps.filter((g) => g <= 30).length,
+      '31–90 days': allGaps.filter((g) => g >= 31 && g <= 90).length,
+      '91–180 days': allGaps.filter((g) => g >= 91 && g <= 180).length,
+      '181–365 days': allGaps.filter((g) => g >= 181 && g <= 365).length,
+      '>365 days': allGaps.filter((g) => g > 365).length,
+    };
+
+    // 3. Top 20 Most Frequently Rejected Journal Identities
+    const top20Journals = [...filteredHistory]
+      .sort((a, b) => b.source_record_count - a.source_record_count)
+      .slice(0, 20)
+      .map((h) => {
+        const title = dimJournals?.get(h.journal_id)?.display_title || h.journal_id;
+        const truncatedTitle = title.length > 28 ? `${title.slice(0, 28)}…` : title;
+        return {
+          journal_id: h.journal_id,
+          title,
+          truncatedTitle,
+          count: h.source_record_count,
+          distinctDays: h.distinct_event_day_count,
+        };
+      });
+
+    return {
+      histBuckets,
+      gapBuckets,
+      totalGaps: allGaps.length,
+      top20Journals,
+    };
+  }, [filteredHistory, dimJournals]);
+
+  // Chart 1: Rejection Frequency Histogram Options
+  const freqDistOptions: echarts.EChartsOption = useMemo(() => {
+    const keys = ['1', '2', '3', '4', '5', '6+'];
+    return {
+      tooltip: {
+        trigger: 'axis',
+        axisPointer: { type: 'shadow' },
+        formatter: (params: any) => {
+          const item = params[0];
+          const pct = filteredHistory.length > 0 ? ((item.value / filteredHistory.length) * 100).toFixed(1) : '0';
+          return `${item.name} application record(s): <strong>${item.value.toLocaleString()}</strong> journals (${pct}%)`;
+        },
+      },
+      grid: { left: '4%', right: '4%', top: '10%', bottom: '15%', containLabel: true },
+      xAxis: {
+        type: 'category',
+        name: 'Record Count',
+        data: keys.map((k) => `${k} record${k === '1' ? '' : 's'}`),
+        axisLabel: { fontFamily: 'var(--font-sans)', fontSize: 11 },
+      },
+      yAxis: {
+        type: 'value',
+        name: 'Journals',
+        axisLabel: { fontFamily: 'var(--font-mono)' },
+      },
+      series: [
+        {
+          name: 'Journals',
+          type: 'bar',
+          data: keys.map((k, idx) => ({
+            value: historyAnalytics.histBuckets[k] || 0,
+            itemStyle: {
+              color: idx === 0 ? '#982E0A' : idx === 1 ? '#FD5A3B' : idx === 2 ? '#FA9A87' : '#282624',
+            },
+          })),
+          label: {
+            show: true,
+            position: 'top',
+            fontFamily: 'var(--font-mono)',
+            fontSize: 11,
+          },
+        },
+      ],
+    };
+  }, [historyAnalytics.histBuckets, filteredHistory.length]);
+
+  // Chart 2: Consecutive Day-Gap Interval Histogram
+  const gapIntervalOptions: echarts.EChartsOption = useMemo(() => {
+    const gapKeys = Object.keys(historyAnalytics.gapBuckets);
+    return {
+      tooltip: {
+        trigger: 'axis',
+        axisPointer: { type: 'shadow' },
+        formatter: (params: any) => {
+          const item = params[0];
+          const pct = historyAnalytics.totalGaps > 0 ? ((item.value / historyAnalytics.totalGaps) * 100).toFixed(1) : '0';
+          return `Interval ${item.name}: <strong>${item.value.toLocaleString()}</strong> consecutive pairs (${pct}%)`;
+        },
+      },
+      grid: { left: '4%', right: '4%', top: '10%', bottom: '15%', containLabel: true },
+      xAxis: {
+        type: 'category',
+        data: gapKeys,
+        axisLabel: { fontFamily: 'var(--font-sans)', fontSize: 11 },
+      },
+      yAxis: {
+        type: 'value',
+        name: 'Event Pairs',
+        axisLabel: { fontFamily: 'var(--font-mono)' },
+      },
+      series: [
+        {
+          name: 'Consecutive Event Pairs',
+          type: 'bar',
+          data: gapKeys.map((k) => ({
+            value: (historyAnalytics.gapBuckets as any)[k] || 0,
+            itemStyle: { color: '#3A5959' },
+          })),
+          label: {
+            show: true,
+            position: 'top',
+            fontFamily: 'var(--font-mono)',
+            fontSize: 11,
+          },
+        },
+      ],
+    };
+  }, [historyAnalytics.gapBuckets, historyAnalytics.totalGaps]);
+
+  // Chart 3: Top 20 Most Frequently Rejected Journals Horizontal Bar
+  const top20Options: echarts.EChartsOption = useMemo(() => {
+    const reversed = [...historyAnalytics.top20Journals].reverse();
+    return {
+      tooltip: {
+        trigger: 'axis',
+        axisPointer: { type: 'shadow' },
+        formatter: (params: any) => {
+          const item = params[0];
+          const fullObj = reversed[item.dataIndex];
+          return `<strong>${fullObj.title}</strong><br/>Rejection Records: <strong>${item.value}</strong><br/>Distinct Event Days: ${fullObj.distinctDays}`;
+        },
+      },
+      grid: { left: '3%', right: '8%', top: '5%', bottom: '5%', containLabel: true },
+      xAxis: {
+        type: 'value',
+        name: 'Records',
+        axisLabel: { fontFamily: 'var(--font-mono)' },
+      },
+      yAxis: {
+        type: 'category',
+        data: reversed.map((j) => j.truncatedTitle),
+        axisLabel: { fontFamily: 'var(--font-sans)', fontSize: 11 },
+      },
+      series: [
+        {
+          name: 'Total Rejections',
+          type: 'bar',
+          data: reversed.map((j) => j.count),
+          itemStyle: { color: '#982E0A' },
+          label: {
+            show: true,
+            position: 'right',
+            fontFamily: 'var(--font-mono)',
+            fontSize: 11,
+          },
+        },
+      ],
+    };
+  }, [historyAnalytics.top20Journals]);
+
   const historySortAccessors = useMemo(() => ({
     journal: (item: RejectionHistoryRecord) => dimJournals?.get(item.journal_id)?.display_title || item.journal_id,
     rank: (item: RejectionHistoryRecord) => dimJournals?.get(item.journal_id)?.sinta_rank || 'unmatched',
@@ -71,6 +251,7 @@ export const RejectionHistoryPage: React.FC<RejectionHistoryPageProps> = ({
     dates: (item: RejectionHistoryRecord) => item.event_days[item.event_days.length - 1] || '',
     gaps: (item: RejectionHistoryRecord) => item.consecutive_day_gaps[item.consecutive_day_gaps.length - 1] ?? -1,
   }), [dimJournals]);
+
   const { sortedItems: sortedHistory, sortKey, direction, requestSort } = useSortableData(
     filteredHistory, historySortAccessors, 'dates', 'desc',
   );
@@ -116,14 +297,15 @@ export const RejectionHistoryPage: React.FC<RejectionHistoryPageProps> = ({
             letterSpacing: '0.05em',
           }}
         >
-          Route 3 • Temporal Chronology
+          Route 3 • Temporal Chronology & Recurrence Analysis
         </span>
         <h2 style={{ marginTop: 'var(--space-1)', marginBottom: 'var(--space-2)' }}>
           Rejection Frequency & Event Chronology
         </h2>
         <p style={{ color: 'var(--dark-grey)', maxWidth: '900px' }}>
           Detailed chronology and recurrence analysis of application rejection records. Distinguishes single-event
-          applications from repeated multi-year rejections, same-day recorded batches, and temporal gaps between events.
+          applications from repeated multi-year rejections, same-day recorded batches, consecutive time gaps, and identifies
+          the Top 20 most frequently rejected journal identities.
         </p>
       </div>
 
@@ -186,6 +368,45 @@ export const RejectionHistoryPage: React.FC<RejectionHistoryPageProps> = ({
           </span>
         </div>
       </div>
+
+      {/* Visual Analytics Row 1: Frequency Histogram & Day-Gap Histogram */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))', gap: 'var(--space-4)' }}>
+        <BaseEChart
+          title="Journal Rejection Frequency Distribution"
+          metricLabel="Rejection Recurrence"
+          unit="unique journals"
+          denominatorNote={`${filteredHistory.length.toLocaleString()} active journals`}
+          scopeNote="Categorized by total recorded rejection events"
+          options={freqDistOptions}
+          ariaLabel="Bar chart of journal rejection frequency counts"
+        />
+
+        <BaseEChart
+          title="Consecutive Application Rejection Intervals"
+          metricLabel="Time Gap Between Sequential Rejections"
+          unit="event pairs"
+          denominatorNote={`${historyAnalytics.totalGaps.toLocaleString()} sequential event intervals`}
+          scopeNote="Distribution of days elapsed between consecutive rejection records"
+          options={gapIntervalOptions}
+          ariaLabel="Histogram of consecutive days between sequential journal rejections"
+        />
+      </div>
+
+      {/* Visual Analytics Row 2: Top 20 Frequently Rejected Journals */}
+      <BaseEChart
+        title="Top 20 Most Frequently Rejected Journal Identities"
+        metricLabel="Total Historical Rejection Records"
+        unit="records"
+        denominatorNote="Sorted by total recorded application rejections (2022–2026)"
+        scopeNote="Identifies persistent re-applications across the DOAJ review timeline"
+        options={top20Options}
+        height={480}
+        ariaLabel="Horizontal bar chart showing top 20 most frequently rejected journal identities"
+        onChartClick={(params) => {
+          const clickedItem = historyAnalytics.top20Journals.find((j) => j.truncatedTitle === params.name);
+          if (clickedItem) onSelectJournal(clickedItem.journal_id);
+        }}
+      />
 
       {/* Recurrence Directory Table */}
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>

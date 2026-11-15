@@ -2,6 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { loadDimJournals, loadFactRejected, loadFactWithdrawn, loadSintaSnapshot } from '../data/loader';
 import { DimJournalRecord, FactRejectedRecord, FactWithdrawnRecord, SintaSnapshotRecord, GlobalFilterState } from '../types';
 import { RankBadge, Alert, LoadingState } from '../components/common/UIPrimitives';
+import { JournalEventTimelineChart } from '../components/charts/JournalEventTimelineChart';
 
 interface JournalExplorerPageProps {
   filters: GlobalFilterState;
@@ -303,6 +304,13 @@ export const JournalExplorerPage: React.FC<JournalExplorerPageProps> = ({
                 )}
               </div>
             </div>
+
+            {/* Visual Timeline of Journal Events */}
+            <JournalEventTimelineChart
+              rejections={journalRejections}
+              withdrawals={journalWithdrawns}
+              journalTitle={activeJournal.display_title}
+            />
 
             {/* Historical Events Timeline for this journal */}
             <div className="card">

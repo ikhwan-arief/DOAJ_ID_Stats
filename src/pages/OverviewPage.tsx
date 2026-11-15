@@ -1,9 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { MetricCard, Alert, LoadingState } from '../components/common/UIPrimitives';
 import { loadSummary, loadFactRejected, loadFactWithdrawn, loadDimJournals } from '../data/loader';
-import { SummaryPublic, IntersectionsPublic, GlobalFilterState, FactRejectedRecord, FactWithdrawnRecord, DimJournalRecord } from '../types';
+import { SummaryPublic, GlobalFilterState, FactRejectedRecord, FactWithdrawnRecord, DimJournalRecord } from '../types';
 import { UpsetVennChart } from '../components/charts/UpsetVennChart';
+import { DeterministicVennDiagram } from '../components/charts/DeterministicVennDiagram';
+import { BaseEChart } from '../components/charts/BaseEChart';
 import { SortableHeader, useSortableData } from '../components/common/SortableTable';
+import * as echarts from '../lib/echarts';
 
 interface OverviewPageProps {
   filters: GlobalFilterState;
@@ -78,19 +81,42 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({ filters, onNavigateT
     ];
     const aggregates = regionDefinitions.map((definition) => {
       const journal_ids = [...universe].filter((id) =>
-        rejectedIds.has(id) === definition.R
-        && withdrawnIds.has(id) === definition.W
-        && sintaIds.has(id) === definition.S,
+        definition.R === rejectedIds.has(id)
+        && definition.W === withdrawnIds.has(id)
+        && definition.S === sintaIds.has(id),
       );
-      return { ...definition, count: journal_ids.length, journal_ids };
+      return {
+        ...definition,
+        count: journal_ids.length,
+        journal_ids,
+      };
     });
-    const histories = new Map<string, FactRejectedRecord[]>();
-    rejectedRows.forEach((row) => {
+
+    const repeatCountsByJournal = new Map<string, { records: number; dates: Set<string>; years: Set<number> }>();
+    for (const row of rejectedRows) {
       const id = effectiveRejectedId(row);
-      if (!id) return;
-      histories.set(id, [...(histories.get(id) || []), row]);
-    });
-    const repeatGroups = [...histories.values()].filter((rows) => rows.length >= 2);
+      if (!id) continue;
+      const current = repeatCountsByJournal.get(id) || { records: 0, dates: new Set<string>(), years: new Set<number>() };
+      current.records += 1;
+      if (row.event_day) current.dates.add(row.event_day);
+      if (row.event_year) current.years.add(row.event_year);
+      repeatCountsByJournal.set(id, current);
+    }
+    const repeatRecordJournals = [...repeatCountsByJournal.values()].filter((item) => item.records >= 2).length;
+    const repeatDateJournals = [...repeatCountsByJournal.values()].filter((item) => item.dates.size >= 2).length;
+    const repeatYearJournals = [...repeatCountsByJournal.values()].filter((item) => item.years.size >= 2).length;
+
+    // Annual Trend Counts (2022 to 2026)
+    const years = [2022, 2023, 2024, 2025, 2026];
+    const rejByYear = years.map((y) => rejectedRows.filter((r) => r.event_year === y).length);
+    const withByYear = years.map((y) => withdrawnRows.filter((w) => w.last_withdrawn_year === y).length);
+
+    // Matching Status Distribution
+    const strictMatched = rejectedRows.filter((r) => r.strict_match_status === 'matched').length;
+    const strictUnmatched = rejectedRows.filter((r) => r.strict_match_status === 'unmatched').length;
+    const extendedMatched = rejectedRows.filter((r) => r.extended_match_status === 'matched').length;
+    const extendedUnmatched = rejectedRows.filter((r) => r.extended_match_status === 'unmatched').length;
+    const extendedAmbiguous = rejectedRows.filter((r) => r.extended_match_status === 'ambiguous').length;
 
     return {
       rejectedRows,
@@ -99,23 +125,147 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({ filters, onNavigateT
       withdrawnIds,
       sintaIds,
       universeCount: universe.size,
-      repeatRecordJournals: repeatGroups.length,
-      repeatDateJournals: repeatGroups.filter((rows) => new Set(rows.map((row) => row.event_day).filter(Boolean)).size >= 2).length,
-      repeatYearJournals: repeatGroups.filter((rows) => new Set(rows.map((row) => row.event_year).filter((year) => year !== null)).size >= 2).length,
-      intersections: { upset_aggregates: aggregates, unresolved_journal_ids: [] } as IntersectionsPublic,
+      repeatRecordJournals,
+      repeatDateJournals,
+      repeatYearJournals,
+      intersections: {
+        upset_aggregates: aggregates,
+        unresolved_journal_ids: [],
+      },
+      annualTrends: {
+        years,
+        rejByYear,
+        withByYear,
+      },
+      matchingStatus: {
+        strictMatched,
+        strictUnmatched,
+        extendedMatched,
+        extendedUnmatched,
+        extendedAmbiguous,
+      },
     };
   }, [filters, rejected, withdrawn, journals]);
 
-  const regionRows = filteredView.intersections.upset_aggregates;
-  const regionSortAccessors = useMemo(() => ({
-    partition: (row: typeof regionRows[number]) => row.region,
-    description: (row: typeof regionRows[number]) => row.region,
-    count: (row: typeof regionRows[number]) => row.count,
-    percentage: (row: typeof regionRows[number]) => filteredView.universeCount ? row.count / filteredView.universeCount : 0,
-  }), [filteredView.universeCount]);
-  const { sortedItems: sortedRegions, sortKey, direction, requestSort } = useSortableData(
-    regionRows, regionSortAccessors, 'count', 'desc',
+  const regionRows = useMemo(() => {
+    return filteredView.intersections.upset_aggregates.map((item) => ({
+      partition: item.region,
+      description: item.region === 'R' ? 'DOAJ Rejected only'
+        : item.region === 'W' ? 'DOAJ Withdrawn only'
+        : item.region === 'S' ? 'SINTA only'
+        : item.region === 'RW' ? 'DOAJ Rejected ∩ Withdrawn'
+        : item.region === 'RS' ? 'DOAJ Rejected ∩ SINTA'
+        : item.region === 'WS' ? 'DOAJ Withdrawn ∩ SINTA'
+        : 'DOAJ Rejected ∩ Withdrawn ∩ SINTA',
+      count: item.count,
+      percentage: filteredView.universeCount ? (item.count / filteredView.universeCount) * 100 : 0,
+      R: item.R,
+      W: item.W,
+      S: item.S,
+      region: item.region,
+    }));
+  }, [filteredView]);
+
+  const { sortedItems: sortedRegions, requestSort, sortKey, direction } = useSortableData(
+    regionRows,
+    {
+      partition: (item) => item.partition,
+      description: (item) => item.description,
+      count: (item) => item.count,
+      percentage: (item) => item.percentage,
+    },
+    'count',
+    'desc',
   );
+
+  // Annual Event Trends EChart Options
+  const annualTrendOptions: echarts.EChartsOption = useMemo(() => {
+    return {
+      tooltip: {
+        trigger: 'axis',
+        axisPointer: { type: 'shadow' },
+      },
+      legend: {
+        data: ['Rejection Records', 'Withdrawn Records'],
+        bottom: 0,
+        textStyle: { fontFamily: 'var(--font-sans)', fontSize: 12 },
+      },
+      grid: { left: '4%', right: '4%', top: '10%', bottom: '15%', containLabel: true },
+      xAxis: {
+        type: 'category',
+        data: filteredView.annualTrends.years.map(String),
+        axisLabel: { fontFamily: 'var(--font-mono)' },
+      },
+      yAxis: {
+        type: 'value',
+        name: 'Records',
+        axisLabel: { fontFamily: 'var(--font-mono)' },
+      },
+      series: [
+        {
+          name: 'Rejection Records',
+          type: 'bar',
+          data: filteredView.annualTrends.rejByYear,
+          itemStyle: { color: '#982E0A' }, // --sanguine
+          emphasis: { focus: 'series' },
+        },
+        {
+          name: 'Withdrawn Records',
+          type: 'bar',
+          data: filteredView.annualTrends.withByYear,
+          itemStyle: { color: '#3A5959' }, // --dark-green
+          emphasis: { focus: 'series' },
+        },
+      ],
+    };
+  }, [filteredView.annualTrends]);
+
+  // Matching-Status Distribution EChart Options
+  const matchingStatusOptions: echarts.EChartsOption = useMemo(() => {
+    const isStrict = filters.matchingMode === 'strict';
+    const data = isStrict
+      ? [
+          { name: 'Strict Matched to SINTA', value: filteredView.matchingStatus.strictMatched, itemStyle: { color: '#47A178' } },
+          { name: 'Unmatched to SINTA', value: filteredView.matchingStatus.strictUnmatched, itemStyle: { color: '#5C5956' } },
+        ]
+      : [
+          { name: 'Extended Matched', value: filteredView.matchingStatus.extendedMatched, itemStyle: { color: '#47A178' } },
+          { name: 'Extended Unmatched', value: filteredView.matchingStatus.extendedUnmatched, itemStyle: { color: '#5C5956' } },
+          { name: 'Ambiguous Collision', value: filteredView.matchingStatus.extendedAmbiguous, itemStyle: { color: '#FD5A3B' } },
+        ];
+
+    return {
+      tooltip: {
+        trigger: 'item',
+        formatter: '{b}: {c} records ({d}%)',
+      },
+      legend: {
+        bottom: 0,
+        textStyle: { fontFamily: 'var(--font-sans)', fontSize: 12 },
+      },
+      series: [
+        {
+          name: 'Matching Status',
+          type: 'pie',
+          radius: ['45%', '70%'],
+          center: ['50%', '45%'],
+          avoidLabelOverlap: true,
+          itemStyle: {
+            borderRadius: 4,
+            borderColor: '#fff',
+            borderWidth: 2,
+          },
+          label: {
+            show: true,
+            formatter: '{b}\n{d}%',
+            fontSize: 11,
+            fontFamily: 'var(--font-sans)',
+          },
+          data,
+        },
+      ],
+    };
+  }, [filters.matchingMode, filteredView.matchingStatus]);
 
   if (error) {
     return <Alert type="warning" title="Error Loading Overview">{error}</Alert>;
@@ -125,7 +275,7 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({ filters, onNavigateT
     return <LoadingState message="Loading validated observatory metrics from Codex WP3..." />;
   }
 
-  const { identity_counts, as_of } = summary;
+  const { as_of } = summary;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
@@ -198,23 +348,26 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({ filters, onNavigateT
         />
       </div>
 
-      {/* UpSet Matrix Chart and Venn Region Partitions */}
-      <section className="card" aria-labelledby="intersection-heading">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap' }}>
-          <div>
-            <h3 id="intersection-heading" style={{ fontSize: 'var(--text-lg)', marginBottom: 'var(--space-1)' }}>
-              Dataset Intersections (DOAJ Rejected ∩ DOAJ Withdrawn ∩ SINTA)
-            </h3>
-            <p style={{ fontSize: 'var(--text-sm)', color: 'var(--dark-grey)' }}>
-              {filters.matchingMode === 'strict' ? 'Standard same-type ISSN matching' : 'Expanded print/online ISSN cross-check'} • Filtered journal universe:{' '}
-              <strong>{filteredView.universeCount.toLocaleString()}</strong>
-            </p>
-          </div>
-          <span className="badge badge-neutral">Exact Partitions (WP3 Invariants)</span>
-        </div>
+      {/* Visual-First Analytics Grid: Venn Diagram & Interactive UpSet */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))', gap: 'var(--space-4)' }}>
+        {/* Three-Set Venn Diagram */}
+        <DeterministicVennDiagram
+          regions={filteredView.intersections.upset_aggregates}
+          onSelectRegion={(reg) => {
+            if (reg.includes('R')) onNavigateToRoute('rejected');
+            else if (reg.includes('W')) onNavigateToRoute('withdrawn');
+            else onNavigateToRoute('sinta');
+          }}
+        />
 
-        {/* UpSet Chart */}
-        <div style={{ marginTop: 'var(--space-4)' }}>
+        {/* UpSet Matrix Chart */}
+        <div className="card" style={{ padding: 'var(--space-4)' }}>
+          <h4 style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--text-md)', margin: '0 0 var(--space-2) 0' }}>
+            Interactive UpSet Matrix Aggregates
+          </h4>
+          <p style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)', marginBottom: 'var(--space-3)' }}>
+            Exact disjoint partition sizes for resolved journal entities. Click any bar to navigate directly to supporting records.
+          </p>
           <UpsetVennChart
             data={filteredView.intersections}
             onSelectRegion={(reg) => {
@@ -224,9 +377,40 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({ filters, onNavigateT
             }}
           />
         </div>
+      </div>
 
-        {/* Tabular Alternative for Intersections (Accessible & Exact) */}
-        <div style={{ marginTop: 'var(--space-5)', overflowX: 'auto' }}>
+      {/* Visual Analytics Row 2: Annual Trends & Matching Status Distribution */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))', gap: 'var(--space-4)' }}>
+        <BaseEChart
+          title="Annual Recorded Event Volumes (2022–2026)"
+          metricLabel="Annual Event Volume"
+          unit="records"
+          denominatorNote="Filtered rejection & withdrawal rows"
+          scopeNote={`Filtered years: ${filters.yearRange[0]}–${filters.yearRange[1]}`}
+          options={annualTrendOptions}
+          ariaLabel="Bar chart of annual recorded DOAJ rejection and withdrawal volumes"
+        />
+
+        <BaseEChart
+          title="Rejection Matching-Status Composition"
+          metricLabel="Match Status Distribution"
+          unit="records"
+          denominatorNote={`${filteredView.rejectedRows.length.toLocaleString()} active rejection records`}
+          scopeNote={`Mode: ${filters.matchingMode.toUpperCase()}`}
+          options={matchingStatusOptions}
+          ariaLabel="Donut chart showing strict or extended matching status distribution"
+        />
+      </div>
+
+      {/* Tabular Alternative for Intersections (Accessible & Exact) */}
+      <section className="card" aria-labelledby="intersection-table-heading" style={{ padding: 0, overflow: 'hidden' }}>
+        <div style={{ padding: 'var(--space-3) var(--space-4)', backgroundColor: 'var(--light-grey)', borderBottom: '1px solid var(--neutral-border)' }}>
+          <h3 id="intersection-table-heading" style={{ fontSize: 'var(--text-base)', margin: 0 }}>
+            Accessible Intersection Partitions (Codex WP3 Invariants)
+          </h3>
+        </div>
+
+        <div style={{ overflowX: 'auto' }}>
           <table
             style={{
               width: '100%',
@@ -235,11 +419,8 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({ filters, onNavigateT
               textAlign: 'left',
             }}
           >
-            <caption style={{ textAlign: 'left', fontWeight: 600, paddingBottom: 'var(--space-2)' }}>
-              Accessible Intersection Partitions (Codex WP3 Regression-Tested Partitions)
-            </caption>
             <thead>
-              <tr style={{ borderBottom: '2px solid var(--neutral-border)', backgroundColor: 'var(--light-grey)' }}>
+              <tr style={{ borderBottom: '2px solid var(--neutral-border)', backgroundColor: 'var(--white)' }}>
                 <SortableHeader columnKey="partition" label="Partition Code" activeKey={sortKey} direction={direction} onSort={requestSort} />
                 <SortableHeader columnKey="description" label="Description & Set Membership" activeKey={sortKey} direction={direction} onSort={requestSort} />
                 <SortableHeader columnKey="count" label="Reconciled Journal Count" activeKey={sortKey} direction={direction} onSort={requestSort} align="right" />
@@ -259,29 +440,18 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({ filters, onNavigateT
                   return 'var(--mid-green)';
                 };
 
-                const getDesc = () => {
-                  if (reg.region === 'R') return 'DOAJ Rejected only (not in SINTA census, no DOAJ withdrawal record)';
-                  if (reg.region === 'W') return 'DOAJ Withdrawn only (not in SINTA census, no DOAJ rejection record)';
-                  if (reg.region === 'S') return 'SINTA accredited journals without recorded DOAJ rejection or withdrawal';
-                  if (reg.region === 'RW') return 'Journals with both DOAJ rejection and withdrawal records, outside SINTA';
-                  if (reg.region === 'RS') return 'SINTA journals with recorded DOAJ rejection applications';
-                  if (reg.region === 'WS') return 'SINTA journals with recorded DOAJ withdrawal records';
-                  if (reg.region === 'RWS') return 'Journals present across all three sources (Rejected, Withdrawn, SINTA)';
-                  return '';
-                };
-
                 return (
                   <tr key={reg.region} style={{ borderBottom: '1px solid var(--light-grey)' }}>
                     <td style={{ padding: 'var(--space-2) var(--space-3)', fontWeight: 700 }}>
                       <span style={{ color: getDotColor(), marginRight: '6px' }}>●</span>
                       {reg.region}
                     </td>
-                    <td style={{ padding: 'var(--space-2) var(--space-3)' }}>{getDesc()}</td>
+                    <td style={{ padding: 'var(--space-2) var(--space-3)' }}>{reg.description}</td>
                     <td style={{ padding: 'var(--space-2) var(--space-3)', textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 600 }}>
                       {reg.count.toLocaleString()}
                     </td>
                     <td style={{ padding: 'var(--space-2) var(--space-3)', textAlign: 'right', fontFamily: 'var(--font-mono)', color: 'var(--dark-grey)' }}>
-                      {filteredView.universeCount ? ((reg.count / filteredView.universeCount) * 100).toFixed(2) : '0.00'}%
+                      {reg.percentage.toFixed(2)}%
                     </td>
                     <td style={{ padding: 'var(--space-2) var(--space-3)', textAlign: 'center' }}>
                       <button
@@ -303,7 +473,7 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({ filters, onNavigateT
             </tbody>
             <tfoot>
               <tr style={{ backgroundColor: 'var(--warm-black-05)', fontWeight: 700, borderTop: '2px solid var(--neutral-border)' }}>
-                <td style={{ padding: 'var(--space-2) var(--space-3)' }}>Total Universe</td>
+                <td style={{ padding: 'var(--space-2) var(--space-3)' }}>Filtered Universe</td>
                 <td style={{ padding: 'var(--space-2) var(--space-3)' }}>Sum of all 7 mutually disjoint partitions</td>
                 <td style={{ padding: 'var(--space-2) var(--space-3)', textAlign: 'right', fontFamily: 'var(--font-mono)' }}>
                   {filteredView.universeCount.toLocaleString()}
@@ -324,7 +494,7 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({ filters, onNavigateT
         <p style={{ fontSize: 'var(--text-sm)', color: 'var(--dark-grey)', lineHeight: 1.6 }}>
           1. <strong>Event Records vs Reconciled Journals:</strong> A single journal can apply multiple times,
           resulting in several rejection records across years ({summary.source_record_counts.rejected.toLocaleString()} records across{' '}
-          {identity_counts.rejected_resolved_journals.toLocaleString()} journals).
+          {summary.identity_counts.rejected_resolved_journals.toLocaleString()} journals).
           <br />
           2. <strong>As-of Snapshot Semantics:</strong> SINTA ranks reflect accreditation status on the snapshot date
           ({as_of.sinta_snapshot}) and must not be misinterpreted as the journal's accreditation level at the time of historical DOAJ application.
