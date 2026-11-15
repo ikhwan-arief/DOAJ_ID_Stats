@@ -936,10 +936,11 @@ export const JournalExplorerPage: React.FC<JournalExplorerPageProps> = ({
             rejections={journalRejections}
             withdrawals={journalWithdrawns}
             accepted={journalAccepted}
+            isCurrentlyIndexed={currentStatus === 'currently_indexed'}
             journalTitle={activeJournal.display_title || activeJournal.journal_id}
           />
 
-          {/* Historical Events Detail Table */}
+          {/* Historical Events Detail Table & Lifecycle Records */}
           <div className="card">
             <h4 style={{ fontSize: 'var(--text-md)', marginBottom: 'var(--space-3)' }}>
               Recorded Review & Indexing History (
@@ -949,94 +950,186 @@ export const JournalExplorerPage: React.FC<JournalExplorerPageProps> = ({
             {journalRejections.length === 0 && journalWithdrawns.length === 0 && journalAccepted.length === 0 ? (
               <p style={{ fontSize: 'var(--text-sm)', color: 'var(--dark-grey)' }}>
                 No historical rejection, withdrawal, or recorded application records attached to this journal identifier.
-                {currentStatus === 'currently_indexed' && ' This journal holds active indexing in DOAJ.'}
+                {currentStatus === 'currently_indexed' && ' This journal holds verified active indexing in DOAJ (15 November 2026 snapshot).'}
               </p>
             ) : (
-              <ul style={{ listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-                {journalRejections.map((rej, idx) => (
-                  <li
-                    key={rej.source_record_id}
-                    style={{
-                      padding: 'var(--space-2) var(--space-3)',
-                      backgroundColor: 'var(--sanguine-10)',
-                      borderLeft: '4px solid var(--sanguine)',
-                      borderRadius: 'var(--radius-sm)',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      fontSize: 'var(--text-sm)',
-                      flexWrap: 'wrap',
-                      gap: 'var(--space-2)',
-                    }}
-                  >
-                    <div>
-                      <strong>Rejection Record #{idx + 1}:</strong> {rej.source_record_id}
-                      <div style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)', marginTop: '2px' }}>
-                        Match Status: {formatMatchStatus(rej.strict_match_status)} • {formatMatchingMethod(rej.strict_match_method)}
-                      </div>
-                    </div>
-                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', fontWeight: 600 }}>
-                      {rej.event_day || rej.event_at_raw || '—'}
-                    </span>
-                  </li>
-                ))}
-                {journalAccepted.map((acc, idx) => (
-                  <li
-                    key={acc.source_record_id}
-                    style={{
-                      padding: 'var(--space-2) var(--space-3)',
-                      backgroundColor: 'var(--sand-light)',
-                      borderLeft: '4px solid var(--dark-navy)',
-                      borderRadius: 'var(--radius-sm)',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      fontSize: 'var(--text-sm)',
-                      flexWrap: 'wrap',
-                      gap: 'var(--space-2)',
-                    }}
-                  >
-                    <div>
-                      <strong>Accepted Application Record #{idx + 1}:</strong> {acc.source_record_id}
-                      <div style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)', marginTop: '2px' }}>
-                        Database catalog entry date: {acc.added_day || '—'} • Decision date unverified in source
-                      </div>
-                    </div>
-                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', fontWeight: 600 }}>
-                      Entry: {acc.added_day || '—'}
-                    </span>
-                  </li>
-                ))}
-                {journalWithdrawns.map((w) => (
-                  <li
-                    key={w.source_record_id}
-                    style={{
-                      padding: 'var(--space-2) var(--space-3)',
-                      backgroundColor: 'var(--dark-green-10)',
-                      borderLeft: '4px solid var(--dark-green)',
-                      borderRadius: 'var(--radius-sm)',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      fontSize: 'var(--text-sm)',
-                      flexWrap: 'wrap',
-                      gap: 'var(--space-2)',
-                    }}
-                  >
-                    <div>
-                      <strong>Withdrawal Record:</strong> {w.source_record_id}
-                      {w.last_reinstated_day && (
-                        <span style={{ color: 'var(--dark-green)', marginLeft: '6px' }}>
-                          (Reinstated: {w.last_reinstated_day})
-                        </span>
-                      )}
-                    </div>
-                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', fontWeight: 600 }}>
-                      {w.last_withdrawn_day || w.last_withdrawn_date_raw || '—'}
-                    </span>
-                  </li>
-                ))}
-              </ul>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+                {/* 1. Verified Chronological Events Sequence */}
+                {(journalRejections.length > 0 || journalWithdrawns.length > 0) && (
+                  <div>
+                    <h5 style={{ fontSize: 'var(--text-sm)', fontWeight: 700, margin: '0 0 var(--space-2) 0', color: 'var(--warm-black)' }}>
+                      Verified Historical Events (Chronological Order)
+                    </h5>
+                    <ul style={{ listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+                      {[
+                        ...journalRejections.map((rej) => ({
+                          date: rej.event_day || (rej.event_year ? `${rej.event_year}-01-01` : '2022-01-01'),
+                          kind: 'rejection' as const,
+                          rej,
+                          withdrawn: null,
+                        })),
+                        ...journalWithdrawns.map((w) => ({
+                          date: w.last_withdrawn_day || (w.last_withdrawn_year ? `${w.last_withdrawn_year}-01-01` : '2022-01-01'),
+                          kind: 'withdrawn' as const,
+                          rej: null,
+                          withdrawn: w,
+                        })),
+                      ]
+                        .sort((a, b) => a.date.localeCompare(b.date))
+                        .map((ev) => {
+                          if (ev.kind === 'rejection' && ev.rej) {
+                            return (
+                              <li
+                                key={ev.rej.source_record_id}
+                                style={{
+                                  padding: 'var(--space-2) var(--space-3)',
+                                  backgroundColor: 'var(--sanguine-10)',
+                                  borderLeft: '4px solid var(--sanguine)',
+                                  borderRadius: 'var(--radius-sm)',
+                                  display: 'flex',
+                                  justifyContent: 'space-between',
+                                  alignItems: 'center',
+                                  fontSize: 'var(--text-sm)',
+                                  flexWrap: 'wrap',
+                                  gap: 'var(--space-2)',
+                                }}
+                              >
+                                <div>
+                                  <strong>Rejected Event:</strong> Record {ev.rej.source_record_id}
+                                  <div style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)', marginTop: '2px' }}>
+                                    Match Status: {formatMatchStatus(ev.rej.strict_match_status)} • {formatMatchingMethod(ev.rej.strict_match_method)}
+                                  </div>
+                                </div>
+                                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', fontWeight: 600 }}>
+                                  {ev.rej.event_day || ev.rej.event_at_raw || '—'}
+                                </span>
+                              </li>
+                            );
+                          }
+                          if (ev.kind === 'withdrawn' && ev.withdrawn) {
+                            return (
+                              <li
+                                key={ev.withdrawn.source_record_id}
+                                style={{
+                                  padding: 'var(--space-2) var(--space-3)',
+                                  backgroundColor: 'var(--dark-green-10)',
+                                  borderLeft: '4px solid var(--dark-green)',
+                                  borderRadius: 'var(--radius-sm)',
+                                  display: 'flex',
+                                  justifyContent: 'space-between',
+                                  alignItems: 'center',
+                                  fontSize: 'var(--text-sm)',
+                                  flexWrap: 'wrap',
+                                  gap: 'var(--space-2)',
+                                }}
+                              >
+                                <div>
+                                  <strong>Withdrawn Event:</strong> Record {ev.withdrawn.source_record_id}
+                                  {ev.withdrawn.last_reinstated_day && (
+                                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--mid-green)', marginTop: '2px', fontWeight: 600 }}>
+                                      Recorded Return to DOAJ: {ev.withdrawn.last_reinstated_day} (source annotation)
+                                    </div>
+                                  )}
+                                </div>
+                                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', fontWeight: 600 }}>
+                                  {ev.withdrawn.last_withdrawn_day || ev.withdrawn.last_withdrawn_date_raw || '—'}
+                                </span>
+                              </li>
+                            );
+                          }
+                          return null;
+                        })}
+                    </ul>
+                  </div>
+                )}
+
+                {/* 2. Undated or Date-Unverified Events Section (Accepted application records) */}
+                {journalAccepted.length > 0 && (
+                  <div style={{ marginTop: 'var(--space-2)' }}>
+                    <h5 style={{ fontSize: 'var(--text-sm)', fontWeight: 700, margin: '0 0 var(--space-2) 0', color: 'var(--warm-black)' }}>
+                      Undated or Date-Unverified Events (Accepted Records)
+                    </h5>
+                    <p style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)', margin: '0 0 var(--space-2) 0' }}>
+                      These records confirm historical DOAJ acceptance. However, exact application decision dates are unverified in the source export,
+                      so they are presented in this qualified section rather than assigned arbitrary chronological positions.
+                    </p>
+                    <ul style={{ listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+                      {journalAccepted.map((acc, idx) => (
+                        <li
+                          key={acc.source_record_id}
+                          style={{
+                            padding: 'var(--space-2) var(--space-3)',
+                            backgroundColor: 'var(--sand-light)',
+                            borderLeft: '4px solid var(--dark-navy)',
+                            borderRadius: 'var(--radius-sm)',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            fontSize: 'var(--text-sm)',
+                            flexWrap: 'wrap',
+                            gap: 'var(--space-2)',
+                          }}
+                        >
+                          <div>
+                            <strong>Accepted Application Record #{idx + 1}:</strong> {acc.source_record_id}
+                            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)', marginTop: '2px' }}>
+                              Database catalog entry date: {acc.added_day || '—'} • Decision date unverified in source
+                            </div>
+                          </div>
+                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--dark-navy)' }}>
+                            Accepted (Date Unverified)
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* 3. Terminal Observation Section */}
+                <div
+                  style={{
+                    marginTop: 'var(--space-2)',
+                    padding: 'var(--space-3)',
+                    borderRadius: 'var(--radius-sm)',
+                    backgroundColor: currentStatus === 'currently_indexed'
+                      ? 'var(--dark-green-10)'
+                      : currentStatus === 'requires_review'
+                      ? 'var(--ochre-10, #FFF8E1)'
+                      : 'var(--light-grey)',
+                    borderLeft: `4px solid ${
+                      currentStatus === 'currently_indexed'
+                        ? 'var(--dark-green)'
+                        : currentStatus === 'requires_review'
+                        ? 'var(--ochre)'
+                        : 'var(--dark-grey)'
+                    }`,
+                  }}
+                >
+                  <div style={{ fontWeight: 700, fontSize: 'var(--text-sm)', color: 'var(--warm-black)' }}>
+                    {currentStatus === 'currently_indexed' && 'Terminal Observation: Currently Indexed — 15 November 2026'}
+                    {currentStatus === 'not_found' && 'Current Snapshot Observation: Not Found'}
+                    {currentStatus === 'requires_review' && 'Current Snapshot Observation: Identity Review Required'}
+                  </div>
+                  <p style={{ margin: '4px 0 0 0', fontSize: 'var(--text-xs)', color: 'var(--dark-grey)', lineHeight: 1.5 }}>
+                    {currentStatus === 'currently_indexed' && (
+                      <>
+                        This journal is reliably identified in the Indonesian DOAJ journal snapshot dated <strong>15 November 2026</strong>.
+                        This observation represents confirmed snapshot membership, not an acceptance decision event.
+                      </>
+                    )}
+                    {currentStatus === 'not_found' && (
+                      <>
+                        Not found in the DOAJ journal snapshot dated 15 November 2026. Subsequent application activity cannot be determined from the available data.
+                      </>
+                    )}
+                    {currentStatus === 'requires_review' && (
+                      <>
+                        Current DOAJ indexing status could not be reliably determined due to multiple identifier candidates sharing these credentials.
+                      </>
+                    )}
+                  </p>
+                </div>
+              </div>
             )}
           </div>
 

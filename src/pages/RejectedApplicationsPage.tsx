@@ -4,7 +4,7 @@ import { FactRejectedRecord, GlobalFilterState } from '../types';
 import { RankBadge, Alert, LoadingState } from '../components/common/UIPrimitives';
 import { SortableHeader, useSortableData } from '../components/common/SortableTable';
 import { BaseEChart } from '../components/charts/BaseEChart';
-import { formatMatchStatus } from '../lib/matchingLabels';
+import { formatMatchStatus, formatCurrentDoajStatusBadge } from '../lib/matchingLabels';
 import * as echarts from '../lib/echarts';
 
 interface RejectedApplicationsPageProps {
@@ -510,6 +510,16 @@ export const RejectedApplicationsPage: React.FC<RejectedApplicationsPageProps> =
                         <span className={`badge ${effectiveMatch === 'matched' ? 'badge-sinta' : 'badge-neutral'}`}>
                           {formatMatchStatus(effectiveMatch)}
                         </span>
+                      </td>
+                      <td style={{ padding: 'var(--space-3)' }}>
+                        {(() => {
+                          const statusInfo = formatCurrentDoajStatusBadge(rec.current_doaj_status);
+                          return (
+                            <span className={`badge ${statusInfo.badgeClass}`} style={statusInfo.style}>
+                              {statusInfo.label}
+                            </span>
+                          );
+                        })()}
                       </td>
                       <td style={{ padding: 'var(--space-3)', whiteSpace: 'nowrap' }}>
                         {rec.journal_url ? (

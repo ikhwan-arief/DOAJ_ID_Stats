@@ -246,7 +246,6 @@ export const WithdrawnJournalsPage: React.FC<WithdrawnJournalsPageProps> = ({
     withdrawn: (record: FactWithdrawnRecord) => record.last_withdrawn_day,
     reinstated: (record: FactWithdrawnRecord) => record.last_reinstated_day,
     rank: (record: FactWithdrawnRecord) => filters.matchingMode === 'extended' ? record.extended_sinta_rank : record.sinta_rank,
-    profile: (record: FactWithdrawnRecord) => record.doaj_profile_url || '',
   }), [filters.matchingMode]);
 
   const { sortedItems: sortedWithdrawn, sortKey, direction, requestSort } = useSortableData(
@@ -301,9 +300,9 @@ export const WithdrawnJournalsPage: React.FC<WithdrawnJournalsPageProps> = ({
 
       <Alert type="important" title="Status Interpretation Safeguard">
         A record in the historical withdrawal dataset documents a past withdrawal event.
-        It must <strong>never</strong> be reported as 'currently withdrawn from DOAJ' without live,
-        real-time verification against the live DOAJ index, as journals may have been subsequently reinstated
-        ({reinstatedCount} source record documents a reinstatement date).
+        It must <strong>never</strong> be reported as 'currently withdrawn from DOAJ' without referencing the
+        current DOAJ index snapshot (15 November 2026), as journals may have subsequently returned to DOAJ
+        ({reinstatedCount} source record documents a recorded return date).
       </Alert>
 
       {/* Summary KPI Strip */}
@@ -336,12 +335,12 @@ export const WithdrawnJournalsPage: React.FC<WithdrawnJournalsPageProps> = ({
         </div>
         <div className="card" style={{ borderLeft: '4px solid var(--yellow)' }}>
           <span style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)', fontWeight: 600 }}>
-            Recorded Reinstatements
+            Recorded Returns to DOAJ
           </span>
           <div style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--text-2xl)', fontWeight: 700, margin: '4px 0' }}>
             {reinstatedCount.toLocaleString()}
           </div>
-          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)' }}>Factually recorded in source data</span>
+          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)' }}>Historical source annotation</span>
         </div>
       </div>
 
@@ -424,14 +423,20 @@ export const WithdrawnJournalsPage: React.FC<WithdrawnJournalsPageProps> = ({
                 <SortableHeader columnKey="title" label="Journal Title" activeKey={sortKey} direction={direction} onSort={requestSort} />
                 <SortableHeader columnKey="issn" label="P-ISSN / E-ISSN" activeKey={sortKey} direction={direction} onSort={requestSort} />
                 <SortableHeader columnKey="withdrawn" label="Withdrawal Date" activeKey={sortKey} direction={direction} onSort={requestSort} />
-                <SortableHeader columnKey="reinstated" label="Reinstatement Date" activeKey={sortKey} direction={direction} onSort={requestSort} />
+                <SortableHeader columnKey="reinstated" label="Recorded Return Date" activeKey={sortKey} direction={direction} onSort={requestSort} />
                 <SortableHeader columnKey="rank" label="SINTA Rank" activeKey={sortKey} direction={direction} onSort={requestSort} />
-                <SortableHeader columnKey="profile" label="Current DOAJ Status" activeKey={sortKey} direction={direction} onSort={requestSort} />
                 <th style={{ padding: 'var(--space-3)' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {pagedRecords.map((rec) => {
+              {pagedRecords.length === 0 ? (
+                <tr>
+                  <td colSpan={7} style={{ padding: 'var(--space-5)', textAlign: 'center', color: 'var(--dark-grey)' }}>
+                    No withdrawal records match your active filter criteria.
+                  </td>
+                </tr>
+              ) : (
+                pagedRecords.map((rec) => {
                 const effectiveRank = filters.matchingMode === 'extended' ? rec.extended_sinta_rank : rec.sinta_rank;
                 const effectiveJournalId = filters.matchingMode === 'extended' && rec.extended_match_status === 'matched'
                   ? rec.extended_journal_id || rec.journal_id
@@ -474,27 +479,15 @@ export const WithdrawnJournalsPage: React.FC<WithdrawnJournalsPageProps> = ({
                     </td>
                     <td style={{ padding: 'var(--space-3)', whiteSpace: 'nowrap' }}>
                       {rec.last_reinstated_date_raw ? (
-                        <span className="badge badge-sinta">{rec.last_reinstated_day || rec.last_reinstated_date_raw}</span>
+                        <span className="badge badge-sinta" title="Recorded Return to DOAJ annotation in source">
+                          {rec.last_reinstated_day || rec.last_reinstated_date_raw}
+                        </span>
                       ) : (
                         <span style={{ color: 'var(--dark-grey)', fontStyle: 'italic' }}>None recorded</span>
                       )}
                     </td>
                     <td style={{ padding: 'var(--space-3)' }}>
                       <RankBadge rank={effectiveRank} />
-                    </td>
-                    <td style={{ padding: 'var(--space-3)' }}>
-                      {rec.doaj_profile_url ? (
-                        <a
-                          href={rec.doaj_profile_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          style={{ fontSize: 'var(--text-xs)', fontWeight: 600 }}
-                        >
-                          Public Profile ↗
-                        </a>
-                      ) : (
-                        <span style={{ color: 'var(--dark-grey)', fontSize: 'var(--text-xs)' }}>—</span>
-                      )}
                     </td>
                     <td style={{ padding: 'var(--space-3)', whiteSpace: 'nowrap' }}>
                       {rec.journal_url && (
@@ -520,7 +513,7 @@ export const WithdrawnJournalsPage: React.FC<WithdrawnJournalsPageProps> = ({
                     </td>
                   </tr>
                 );
-              })}
+              }))}
             </tbody>
           </table>
         </div>

@@ -2,8 +2,11 @@
  * Developed by Ikhwan Arief (ikhwan[at]unand.ac.id).
  * Copyright (c) 2026 Ikhwan Arief. Copyright held by the application developer.
  *
- * Centralized presentation utility for reader-friendly, accessible English matching labels.
+ * Centralized presentation utility for reader-friendly, accessible English matching
+ * and lifecycle presentation labels.
  */
+
+export type PrimaryEventType = 'Rejected' | 'Accepted' | 'Withdrawn';
 
 /**
  * Maps technical matching method codes to clear English labels.
@@ -67,4 +70,36 @@ export function getMatchingExplanation(status: string | null | undefined, method
     return 'Multiple candidate journals share these identifier attributes; manual editorial review required.';
   }
   return 'Not cross-referenced in the national SINTA census. Note: This reflects national accreditation cross-matching, not DOAJ indexing status or journal legitimacy.';
+}
+
+/**
+ * Lifecycle Presentation Utilities
+ * Formats current DOAJ indexing observations vs historical events.
+ */
+
+export function formatCurrentDoajStatusBadge(status: string | null | undefined): {
+  label: string;
+  badgeClass?: string;
+  style?: React.CSSProperties;
+} {
+  if (status === 'currently_indexed') {
+    return {
+      label: 'Currently Indexed',
+      badgeClass: 'badge-sinta',
+      style: { backgroundColor: 'var(--dark-green)', color: 'var(--white)', fontWeight: 600 },
+    };
+  }
+  if (status === 'requires_review') {
+    return {
+      label: 'Identity Requires Review',
+      badgeClass: 'badge-neutral',
+      style: { backgroundColor: 'var(--ochre)', color: 'var(--warm-black)', fontWeight: 600 },
+    };
+  }
+  // Not found or undefined
+  return {
+    label: '—',
+    badgeClass: 'badge-neutral',
+    style: { color: 'var(--dark-grey)' },
+  };
 }

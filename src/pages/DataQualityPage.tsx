@@ -496,6 +496,22 @@ export const DataQualityPage: React.FC = () => {
             <code className="font-mono">http://</code>).
           </p>
         </section>
+
+        {/* Journal Lifecycle Methodology & Terminal Observation Model */}
+        <section className="card">
+          <h3 style={{ fontSize: 'var(--text-lg)', marginBottom: 'var(--space-2)' }}>
+            5. Journal Lifecycle Model & Snapshot Observation
+          </h3>
+          <p style={{ fontSize: 'var(--text-sm)', color: 'var(--dark-grey)', lineHeight: 1.6 }}>
+            • <strong>Historical Event Types:</strong> Historical events are strictly classified into <strong>Rejected</strong>, <strong>Accepted</strong>, and <strong>Withdrawn</strong>.
+            <br />
+            • <strong>Currently Indexed:</strong> Represents a journal reliably verified in the active Indonesian DOAJ snapshot (15 November 2026). It serves as a <em>terminal snapshot observation</em>, not a historical application acceptance event.
+            <br />
+            • <strong>Absence of Snapshot Match:</strong> A journal not found in the current snapshot indicates only that active indexing was not confirmed on 15 November 2026; it does not prove that the journal never reapplied or was permanently excluded.
+            <br />
+            • <strong>Date Verification:</strong> Accepted records lacking verified decision dates are explicitly qualified and never assigned arbitrary chronological dates.
+          </p>
+        </section>
       </div>
 
       {/* Dataset Verification Manifest Table (Hidden per request) */}
