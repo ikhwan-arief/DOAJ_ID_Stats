@@ -4,7 +4,7 @@ import { FactRejectedRecord, GlobalFilterState } from '../types';
 import { RankBadge, Alert, LoadingState } from '../components/common/UIPrimitives';
 import { SortableHeader, useSortableData } from '../components/common/SortableTable';
 import { BaseEChart } from '../components/charts/BaseEChart';
-import { formatMatchStatus, formatCurrentDoajStatusBadge } from '../lib/matchingLabels';
+import { formatMatchStatus, formatCurrentDoajStatusBadge, getCurrentDoajStatusSortRank } from '../lib/matchingLabels';
 import * as echarts from '../lib/echarts';
 
 interface RejectedApplicationsPageProps {
@@ -267,6 +267,7 @@ export const RejectedApplicationsPage: React.FC<RejectedApplicationsPageProps> =
     date: (record: FactRejectedRecord) => record.event_day,
     rank: (record: FactRejectedRecord) => filters.matchingMode === 'extended' ? record.extended_sinta_rank : record.sinta_rank,
     match: (record: FactRejectedRecord) => filters.matchingMode === 'extended' ? record.extended_match_status : record.strict_match_status,
+    currentStatus: (record: FactRejectedRecord) => getCurrentDoajStatusSortRank(record.current_doaj_status),
   }), [filters.matchingMode]);
 
   const { sortedItems: sortedRecords, sortKey, direction, requestSort } = useSortableData(
@@ -275,7 +276,7 @@ export const RejectedApplicationsPage: React.FC<RejectedApplicationsPageProps> =
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [filters]);
+  }, [filters, sortKey, direction]);
 
   const totalPages = Math.ceil(sortedRecords.length / pageSize) || 1;
   const pagedRecords = useMemo(() => {
@@ -441,7 +442,7 @@ export const RejectedApplicationsPage: React.FC<RejectedApplicationsPageProps> =
                 <SortableHeader columnKey="date" label="Date Rejected" activeKey={sortKey} direction={direction} onSort={requestSort} />
                 <SortableHeader columnKey="rank" label="SINTA Rank" activeKey={sortKey} direction={direction} onSort={requestSort} />
                 <SortableHeader columnKey="match" label="Match Status" activeKey={sortKey} direction={direction} onSort={requestSort} />
-                <th style={{ padding: 'var(--space-3)' }}>Current DOAJ Status</th>
+                <SortableHeader columnKey="currentStatus" label="Current DOAJ Status" activeKey={sortKey} direction={direction} onSort={requestSort} />
                 <th style={{ padding: 'var(--space-3)' }}>Actions</th>
               </tr>
             </thead>

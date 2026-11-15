@@ -3,6 +3,7 @@ import { loadFactWithdrawn, loadFactRejected } from '../data/loader';
 import { FactWithdrawnRecord, FactRejectedRecord, GlobalFilterState } from '../types';
 import { RankBadge, Alert, LoadingState } from '../components/common/UIPrimitives';
 import { SortableHeader, useSortableData } from '../components/common/SortableTable';
+import { formatCurrentDoajStatusBadge, getCurrentDoajStatusSortRank } from '../lib/matchingLabels';
 import { BaseEChart } from '../components/charts/BaseEChart';
 import * as echarts from '../lib/echarts';
 
@@ -246,6 +247,7 @@ export const WithdrawnJournalsPage: React.FC<WithdrawnJournalsPageProps> = ({
     withdrawn: (record: FactWithdrawnRecord) => record.last_withdrawn_day,
     reinstated: (record: FactWithdrawnRecord) => record.last_reinstated_day,
     rank: (record: FactWithdrawnRecord) => filters.matchingMode === 'extended' ? record.extended_sinta_rank : record.sinta_rank,
+    currentStatus: (record: FactWithdrawnRecord) => getCurrentDoajStatusSortRank(record.current_doaj_status),
   }), [filters.matchingMode]);
 
   const { sortedItems: sortedWithdrawn, sortKey, direction, requestSort } = useSortableData(
@@ -254,7 +256,7 @@ export const WithdrawnJournalsPage: React.FC<WithdrawnJournalsPageProps> = ({
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [filters]);
+  }, [filters, sortKey, direction]);
 
   const totalPages = Math.ceil(sortedWithdrawn.length / pageSize) || 1;
   const pagedRecords = useMemo(() => {
@@ -425,13 +427,14 @@ export const WithdrawnJournalsPage: React.FC<WithdrawnJournalsPageProps> = ({
                 <SortableHeader columnKey="withdrawn" label="Withdrawal Date" activeKey={sortKey} direction={direction} onSort={requestSort} />
                 <SortableHeader columnKey="reinstated" label="Recorded Return Date" activeKey={sortKey} direction={direction} onSort={requestSort} />
                 <SortableHeader columnKey="rank" label="SINTA Rank" activeKey={sortKey} direction={direction} onSort={requestSort} />
+                <SortableHeader columnKey="currentStatus" label="Current DOAJ Status" activeKey={sortKey} direction={direction} onSort={requestSort} />
                 <th style={{ padding: 'var(--space-3)' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
               {pagedRecords.length === 0 ? (
                 <tr>
-                  <td colSpan={7} style={{ padding: 'var(--space-5)', textAlign: 'center', color: 'var(--dark-grey)' }}>
+                  <td colSpan={8} style={{ padding: 'var(--space-5)', textAlign: 'center', color: 'var(--dark-grey)' }}>
                     No withdrawal records match your active filter criteria.
                   </td>
                 </tr>
@@ -488,6 +491,16 @@ export const WithdrawnJournalsPage: React.FC<WithdrawnJournalsPageProps> = ({
                     </td>
                     <td style={{ padding: 'var(--space-3)' }}>
                       <RankBadge rank={effectiveRank} />
+                    </td>
+                    <td style={{ padding: 'var(--space-3)' }}>
+                      {(() => {
+                        const statusInfo = formatCurrentDoajStatusBadge(rec.current_doaj_status);
+                        return (
+                          <span className={`badge ${statusInfo.badgeClass}`} style={statusInfo.style}>
+                            {statusInfo.label}
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td style={{ padding: 'var(--space-3)', whiteSpace: 'nowrap' }}>
                       {rec.journal_url && (

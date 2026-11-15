@@ -3,6 +3,7 @@ import { loadRejectionHistory, loadDimJournals, loadSummary } from '../data/load
 import { RejectionHistoryRecord, DimJournalRecord, SummaryPublic, GlobalFilterState } from '../types';
 import { RankBadge, Alert, LoadingState } from '../components/common/UIPrimitives';
 import { SortableHeader, useSortableData } from '../components/common/SortableTable';
+import { formatCurrentDoajStatusBadge, getCurrentDoajStatusSortRank } from '../lib/matchingLabels';
 import { BaseEChart } from '../components/charts/BaseEChart';
 import * as echarts from '../lib/echarts';
 
@@ -245,6 +246,7 @@ export const RejectionHistoryPage: React.FC<RejectionHistoryPageProps> = ({
   const historySortAccessors = useMemo(() => ({
     journal: (item: RejectionHistoryRecord) => dimJournals?.get(item.journal_id)?.display_title || item.journal_id,
     rank: (item: RejectionHistoryRecord) => dimJournals?.get(item.journal_id)?.sinta_rank || 'unmatched',
+    currentStatus: (item: RejectionHistoryRecord) => getCurrentDoajStatusSortRank(dimJournals?.get(item.journal_id)?.current_doaj_status),
     records: (item: RejectionHistoryRecord) => item.source_record_count,
     days: (item: RejectionHistoryRecord) => item.distinct_event_day_count,
     years: (item: RejectionHistoryRecord) => item.distinct_event_year_count,
@@ -258,7 +260,7 @@ export const RejectionHistoryPage: React.FC<RejectionHistoryPageProps> = ({
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [filters]);
+  }, [filters, sortKey, direction]);
 
   const totalPages = Math.ceil(sortedHistory.length / pageSize) || 1;
   const pagedHistory = useMemo(() => {
@@ -510,7 +512,7 @@ export const RejectionHistoryPage: React.FC<RejectionHistoryPageProps> = ({
               <tr style={{ borderBottom: '2px solid var(--neutral-border)', backgroundColor: 'var(--white)' }}>
                 <SortableHeader columnKey="journal" label="Journal Identifier & Title" activeKey={sortKey} direction={direction} onSort={requestSort} />
                 <SortableHeader columnKey="rank" label="SINTA Rank" activeKey={sortKey} direction={direction} onSort={requestSort} />
-                <th>DOAJ Lifecycle Status</th>
+                <SortableHeader columnKey="currentStatus" label="Current DOAJ Status" activeKey={sortKey} direction={direction} onSort={requestSort} />
                 <SortableHeader columnKey="records" label="Total Records" activeKey={sortKey} direction={direction} onSort={requestSort} align="center" />
                 <SortableHeader columnKey="days" label="Distinct Days" activeKey={sortKey} direction={direction} onSort={requestSort} align="center" />
                 <SortableHeader columnKey="years" label="Span Years" activeKey={sortKey} direction={direction} onSort={requestSort} align="center" />
@@ -553,48 +555,14 @@ export const RejectionHistoryPage: React.FC<RejectionHistoryPageProps> = ({
                       <RankBadge rank={rank} />
                     </td>
                     <td style={{ padding: 'var(--space-3)' }}>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                        {dim?.in_current_doaj && (
-                          <span
-                            className="badge"
-                            style={{
-                              backgroundColor: 'var(--dark-green)',
-                              color: 'var(--white)',
-                              fontSize: '10px',
-                              padding: '2px 6px',
-                            }}
-                          >
-                            ✓ Currently Indexed
+                      {(() => {
+                        const statusInfo = formatCurrentDoajStatusBadge(dim?.current_doaj_status);
+                        return (
+                          <span className={`badge ${statusInfo.badgeClass}`} style={statusInfo.style}>
+                            {statusInfo.label}
                           </span>
-                        )}
-                        {dim?.in_accepted && (
-                          <span
-                            className="badge"
-                            style={{
-                              backgroundColor: 'var(--dark-navy)',
-                              color: 'var(--white)',
-                              fontSize: '10px',
-                              padding: '2px 6px',
-                            }}
-                          >
-                            Accepted Record
-                          </span>
-                        )}
-                        {dim?.in_withdrawn && (
-                          <span
-                            className="badge badge-withdrawn"
-                            style={{
-                              fontSize: '10px',
-                              padding: '2px 6px',
-                            }}
-                          >
-                            Withdrawn Record
-                          </span>
-                        )}
-                        {!dim?.in_current_doaj && !dim?.in_accepted && !dim?.in_withdrawn && (
-                          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)' }}>Rejection only</span>
-                        )}
-                      </div>
+                        );
+                      })()}
                     </td>
                     <td style={{ padding: 'var(--space-3)', textAlign: 'center' }}>
                       <span

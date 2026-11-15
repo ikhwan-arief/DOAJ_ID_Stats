@@ -103,3 +103,21 @@ export function formatCurrentDoajStatusBadge(status: string | null | undefined):
     style: { color: 'var(--dark-grey)' },
   };
 }
+
+/**
+ * Shared status sort priority helper:
+ * Ascending:
+ *   1. Currently Indexed
+ *   2. Identity Requires Review
+ *   3. — (not found)
+ *
+ * Using numeric values:
+ *   currently_indexed -> 1
+ *   requires_review   -> 2
+ *   not_found / other -> 3
+ */
+export function getCurrentDoajStatusSortRank(status: string | null | undefined): number {
+  if (status === 'currently_indexed') return 1;
+  if (status === 'requires_review') return 2;
+  return 3;
+}
