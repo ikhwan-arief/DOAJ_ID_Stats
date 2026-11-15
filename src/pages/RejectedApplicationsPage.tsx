@@ -440,7 +440,6 @@ export const RejectedApplicationsPage: React.FC<RejectedApplicationsPageProps> =
           >
             <thead>
               <tr style={{ borderBottom: '2px solid var(--neutral-border)', backgroundColor: 'var(--white)' }}>
-                <SortableHeader columnKey="id" label="Record ID" activeKey={sortKey} direction={direction} onSort={requestSort} />
                 <SortableHeader columnKey="title" label="Journal Title" activeKey={sortKey} direction={direction} onSort={requestSort} />
                 <SortableHeader columnKey="pIssn" label="P-ISSN" activeKey={sortKey} direction={direction} onSort={requestSort} />
                 <SortableHeader columnKey="eIssn" label="E-ISSN" activeKey={sortKey} direction={direction} onSort={requestSort} />
@@ -454,7 +453,7 @@ export const RejectedApplicationsPage: React.FC<RejectedApplicationsPageProps> =
             <tbody>
               {pagedRecords.length === 0 ? (
                 <tr>
-                  <td colSpan={9} style={{ padding: 'var(--space-5)', textAlign: 'center', color: 'var(--dark-grey)' }}>
+                  <td colSpan={8} style={{ padding: 'var(--space-5)', textAlign: 'center', color: 'var(--dark-grey)' }}>
                     No rejection records match your active filter criteria.
                   </td>
                 </tr>
@@ -468,9 +467,6 @@ export const RejectedApplicationsPage: React.FC<RejectedApplicationsPageProps> =
 
                   return (
                     <tr key={rec.source_record_id} style={{ borderBottom: '1px solid var(--light-grey)' }}>
-                      <td style={{ padding: 'var(--space-3)', fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--dark-grey)' }}>
-                        {rec.source_record_id}
-                      </td>
                       <td style={{ padding: 'var(--space-3)', fontWeight: 600 }}>
                         {effectiveJournalId ? (
                           <button

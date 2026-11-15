@@ -649,7 +649,7 @@ export const RejectionHistoryPage: React.FC<RejectionHistoryPageProps> = ({
           >
             <thead>
               <tr style={{ borderBottom: '2px solid var(--neutral-border)', backgroundColor: 'var(--white)' }}>
-                <SortableHeader columnKey="journal" label="Journal Identifier & Title" activeKey={sortKey} direction={direction} onSort={requestSort} />
+                <SortableHeader columnKey="journal" label="Journal Title" activeKey={sortKey} direction={direction} onSort={requestSort} />
                 <SortableHeader columnKey="rank" label="SINTA Rank" activeKey={sortKey} direction={direction} onSort={requestSort} />
                 <SortableHeader columnKey="currentStatus" label="Current DOAJ Status" activeKey={sortKey} direction={direction} onSort={requestSort} />
                 <SortableHeader columnKey="records" label="Total Records" activeKey={sortKey} direction={direction} onSort={requestSort} align="center" />
@@ -686,9 +686,6 @@ export const RejectionHistoryPage: React.FC<RejectionHistoryPageProps> = ({
                       >
                         {title}
                       </button>
-                      <div style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)', fontFamily: 'var(--font-mono)' }}>
-                        {h.journal_id}
-                      </div>
                     </td>
                     <td style={{ padding: 'var(--space-3)' }}>
                       <RankBadge rank={rank} />
