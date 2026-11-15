@@ -5,6 +5,10 @@ import { RankBadge, Alert, LoadingState } from '../components/common/UIPrimitive
 import { SortableHeader, useSortableData } from '../components/common/SortableTable';
 import { formatCurrentDoajStatusBadge, getCurrentDoajStatusSortRank } from '../lib/matchingLabels';
 import { BaseEChart } from '../components/charts/BaseEChart';
+import {
+  createCategoricalAxisLabelConfig,
+  createCategoricalGridConfig,
+} from '../lib/chartAxisConfig';
 import * as echarts from '../lib/echarts';
 
 interface RejectionHistoryPageProps {
@@ -126,12 +130,12 @@ export const RejectionHistoryPage: React.FC<RejectionHistoryPageProps> = ({
           return `${item.name} application record(s): <strong>${item.value.toLocaleString()}</strong> journals (${pct}%)`;
         },
       },
-      grid: { left: '4%', right: '4%', top: '10%', bottom: '15%', containLabel: true },
+      grid: createCategoricalGridConfig({ left: '4%', right: '4%', top: '10%', bottom: '16%' }),
       xAxis: {
         type: 'category',
         name: 'Record Count',
         data: keys.map((k) => `${k} record${k === '1' ? '' : 's'}`),
-        axisLabel: { fontFamily: 'var(--font-sans)', fontSize: 11 },
+        axisLabel: createCategoricalAxisLabelConfig({ rotate: 0, fontSize: 11 }),
       },
       yAxis: {
         type: 'value',
@@ -172,11 +176,11 @@ export const RejectionHistoryPage: React.FC<RejectionHistoryPageProps> = ({
           return `Interval ${item.name}: <strong>${item.value.toLocaleString()}</strong> consecutive pairs (${pct}%)`;
         },
       },
-      grid: { left: '4%', right: '4%', top: '10%', bottom: '15%', containLabel: true },
+      grid: createCategoricalGridConfig({ left: '4%', right: '4%', top: '10%', bottom: '16%' }),
       xAxis: {
         type: 'category',
         data: gapKeys,
-        axisLabel: { fontFamily: 'var(--font-sans)', fontSize: 11 },
+        axisLabel: createCategoricalAxisLabelConfig({ rotate: gapKeys.length > 5 ? 25 : 0, fontSize: 11 }),
       },
       yAxis: {
         type: 'value',
@@ -224,7 +228,7 @@ export const RejectionHistoryPage: React.FC<RejectionHistoryPageProps> = ({
       yAxis: {
         type: 'category',
         data: reversed.map((j) => j.truncatedTitle),
-        axisLabel: { fontFamily: 'var(--font-sans)', fontSize: 11 },
+        axisLabel: createCategoricalAxisLabelConfig({ rotate: 0, fontSize: 11 }),
       },
       series: [
         {
@@ -260,11 +264,11 @@ export const RejectionHistoryPage: React.FC<RejectionHistoryPageProps> = ({
           return `Interval ${item.name}: <strong>${item.value}</strong> journals (${pct}%)`;
         },
       },
-      grid: { left: '4%', right: '4%', top: '10%', bottom: '15%', containLabel: true },
+      grid: createCategoricalGridConfig({ left: '4%', right: '4%', top: '10%', bottom: '16%' }),
       xAxis: {
         type: 'category',
         data: keys,
-        axisLabel: { fontFamily: 'var(--font-sans)', fontSize: 11 },
+        axisLabel: createCategoricalAxisLabelConfig({ rotate: 0, fontSize: 11 }),
       },
       yAxis: {
         type: 'value',
@@ -315,11 +319,11 @@ export const RejectionHistoryPage: React.FC<RejectionHistoryPageProps> = ({
         top: '2%',
         textStyle: { fontFamily: 'var(--font-sans)', fontSize: 11 },
       },
-      grid: { left: '4%', right: '4%', top: '16%', bottom: '15%', containLabel: true },
+      grid: createCategoricalGridConfig({ left: '4%', right: '4%', top: '16%', bottom: '16%' }),
       xAxis: {
         type: 'category',
         data: years.map((y) => `Cohort ${y}`),
-        axisLabel: { fontFamily: 'var(--font-sans)', fontSize: 11 },
+        axisLabel: createCategoricalAxisLabelConfig({ rotate: 0, fontSize: 11 }),
       },
       yAxis: {
         type: 'value',

@@ -6,6 +6,10 @@ import { UpsetVennChart } from '../components/charts/UpsetVennChart';
 import { DeterministicVennDiagram } from '../components/charts/DeterministicVennDiagram';
 import { CurrentSintaVennDiagram } from '../components/charts/CurrentSintaVennDiagram';
 import { BaseEChart } from '../components/charts/BaseEChart';
+import {
+  createCategoricalAxisLabelConfig,
+  createCategoricalGridConfig,
+} from '../lib/chartAxisConfig';
 import { SortableHeader, useSortableData } from '../components/common/SortableTable';
 import * as echarts from '../lib/echarts';
 
@@ -191,11 +195,11 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({ filters, onNavigateT
         bottom: 0,
         textStyle: { fontFamily: 'var(--font-sans)', fontSize: 12 },
       },
-      grid: { left: '4%', right: '4%', top: '10%', bottom: '15%', containLabel: true },
+      grid: createCategoricalGridConfig({ left: '4%', right: '4%', top: '10%', bottom: '16%' }),
       xAxis: {
         type: 'category',
         data: filteredView.annualTrends.years.map(String),
-        axisLabel: { fontFamily: 'var(--font-mono)' },
+        axisLabel: createCategoricalAxisLabelConfig({ rotate: 0, fontSize: 11 }),
       },
       yAxis: {
         type: 'value',

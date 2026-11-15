@@ -4,6 +4,13 @@ import { FactWithdrawnRecord, FactRejectedRecord, SummaryPublic, GlobalFilterSta
 import { RankBadge, Alert, LoadingState } from '../components/common/UIPrimitives';
 import { SortableHeader, useSortableData } from '../components/common/SortableTable';
 import { formatCurrentDoajStatusBadge, getCurrentDoajStatusSortRank } from '../lib/matchingLabels';
+import {
+  formatSintaRankLabel,
+  getSintaRankTooltipDescription,
+  getSintaRankColor,
+  createCategoricalAxisLabelConfig,
+  createCategoricalGridConfig,
+} from '../lib/chartAxisConfig';
 import { BaseEChart } from '../components/charts/BaseEChart';
 import * as echarts from '../lib/echarts';
 
@@ -74,7 +81,12 @@ export const WithdrawnJournalsPage: React.FC<WithdrawnJournalsPageProps> = ({
     );
 
     // 2. SINTA Rank Distribution
-    const rankOrder = ['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'NA', 'unmatched'];
+    const hasAmbiguous = filteredWithdrawn.some(
+      (w) => (filters.matchingMode === 'extended' ? w.extended_sinta_rank : w.sinta_rank) === 'ambiguous'
+    );
+    const rankOrder = hasAmbiguous
+      ? ['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'NA', 'unmatched', 'ambiguous']
+      : ['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'NA', 'unmatched'];
     const rankCounts: Record<string, number> = {};
     for (const w of filteredWithdrawn) {
       const rnk = filters.matchingMode === 'extended' ? w.extended_sinta_rank : w.sinta_rank;
@@ -117,7 +129,7 @@ export const WithdrawnJournalsPage: React.FC<WithdrawnJournalsPageProps> = ({
       xAxis: {
         type: 'category',
         data: withdrawnAnalytics.years.map(String),
-        axisLabel: { fontFamily: 'var(--font-mono)' },
+        axisLabel: createCategoricalAxisLabelConfig({ rotate: 0, fontSize: 11 }),
       },
       yAxis: {
         type: 'value',
@@ -143,34 +155,26 @@ export const WithdrawnJournalsPage: React.FC<WithdrawnJournalsPageProps> = ({
 
   // Chart 2: SINTA Rank Distribution
   const rankDistOptions: echarts.EChartsOption = useMemo(() => {
-    const getRankColor = (rank: string) => {
-      switch (rank) {
-        case 'S1': return '#1B4D3E';
-        case 'S2': return '#2E6F56';
-        case 'S3': return '#47A178';
-        case 'S4': return '#3A5959';
-        case 'S5': return '#8C6D31';
-        case 'S6': return '#735338';
-        case 'NA': return '#5C5956';
-        default: return '#7E7A75';
-      }
-    };
-
     return {
       tooltip: {
         trigger: 'axis',
         axisPointer: { type: 'shadow' },
         formatter: (params: any) => {
           const item = params[0];
+          const rankKey = withdrawnAnalytics.rankOrder[item.dataIndex] || item.name;
+          const desc = getSintaRankTooltipDescription(rankKey);
           const pct = filteredWithdrawn.length > 0 ? ((item.value / filteredWithdrawn.length) * 100).toFixed(1) : '0';
-          return `${item.name}: <strong>${item.value.toLocaleString()}</strong> records (${pct}%)`;
+          return `<div style="font-weight:700;">${desc}</div>
+            <div style="font-family:var(--font-mono);font-size:12px;margin-top:2px;">
+              Withdrawals: <strong>${item.value.toLocaleString()}</strong> records (${pct}%)
+            </div>`;
         },
       },
-      grid: { left: '4%', right: '4%', top: '10%', bottom: '15%', containLabel: true },
+      grid: createCategoricalGridConfig({ left: '4%', right: '4%', top: '10%', bottom: '16%' }),
       xAxis: {
         type: 'category',
-        data: withdrawnAnalytics.rankOrder,
-        axisLabel: { fontFamily: 'var(--font-mono)', fontWeight: 600 },
+        data: withdrawnAnalytics.rankOrder.map(formatSintaRankLabel),
+        axisLabel: createCategoricalAxisLabelConfig({ rotate: 0, fontSize: 11 }),
       },
       yAxis: {
         type: 'value',
@@ -183,7 +187,7 @@ export const WithdrawnJournalsPage: React.FC<WithdrawnJournalsPageProps> = ({
           type: 'bar',
           data: withdrawnAnalytics.rankOrder.map((rnk) => ({
             value: withdrawnAnalytics.rankCounts[rnk] || 0,
-            itemStyle: { color: getRankColor(rnk) },
+            itemStyle: { color: getSintaRankColor(rnk) },
           })),
           label: {
             show: true,

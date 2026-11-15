@@ -5,6 +5,13 @@ import { RankBadge, Alert, LoadingState } from '../components/common/UIPrimitive
 import { SortableHeader, useSortableData } from '../components/common/SortableTable';
 import { BaseEChart } from '../components/charts/BaseEChart';
 import { formatMatchStatus, formatCurrentDoajStatusBadge, getCurrentDoajStatusSortRank } from '../lib/matchingLabels';
+import {
+  formatSintaRankLabel,
+  getSintaRankTooltipDescription,
+  getSintaRankColor,
+  createCategoricalAxisLabelConfig,
+  createCategoricalGridConfig,
+} from '../lib/chartAxisConfig';
 import * as echarts from '../lib/echarts';
 
 interface RejectedApplicationsPageProps {
@@ -69,7 +76,12 @@ export const RejectedApplicationsPage: React.FC<RejectedApplicationsPageProps> =
     const sortedMonths = Object.keys(monthCounts).sort();
 
     // 2. SINTA Rank Distribution
-    const rankOrder = ['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'NA', 'unmatched'];
+    const hasAmbiguous = filteredRecords.some(
+      (r) => (filters.matchingMode === 'extended' ? r.extended_sinta_rank : r.sinta_rank) === 'ambiguous'
+    );
+    const rankOrder = hasAmbiguous
+      ? ['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'NA', 'unmatched', 'ambiguous']
+      : ['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'NA', 'unmatched'];
     const rankCounts: Record<string, number> = {};
     for (const r of filteredRecords) {
       const rnk = filters.matchingMode === 'extended' ? r.extended_sinta_rank : r.sinta_rank;
@@ -147,34 +159,26 @@ export const RejectedApplicationsPage: React.FC<RejectedApplicationsPageProps> =
 
   // Chart 2: SINTA Rank Distribution Bar
   const rankDistOptions: echarts.EChartsOption = useMemo(() => {
-    const getRankColor = (rank: string) => {
-      switch (rank) {
-        case 'S1': return '#1B4D3E';
-        case 'S2': return '#2E6F56';
-        case 'S3': return '#47A178';
-        case 'S4': return '#3A5959';
-        case 'S5': return '#8C6D31';
-        case 'S6': return '#735338';
-        case 'NA': return '#5C5956';
-        default: return '#7E7A75';
-      }
-    };
-
     return {
       tooltip: {
         trigger: 'axis',
         axisPointer: { type: 'shadow' },
         formatter: (params: any) => {
           const item = params[0];
+          const rankKey = analyticsData.rankOrder[item.dataIndex] || item.name;
+          const desc = getSintaRankTooltipDescription(rankKey);
           const pct = filteredRecords.length > 0 ? ((item.value / filteredRecords.length) * 100).toFixed(1) : '0';
-          return `${item.name}: <strong>${item.value.toLocaleString()}</strong> records (${pct}%)`;
+          return `<div style="font-weight:700;">${desc}</div>
+            <div style="font-family:var(--font-mono);font-size:12px;margin-top:2px;">
+              Applications: <strong>${item.value.toLocaleString()}</strong> records (${pct}%)
+            </div>`;
         },
       },
-      grid: { left: '4%', right: '4%', top: '10%', bottom: '15%', containLabel: true },
+      grid: createCategoricalGridConfig({ left: '4%', right: '4%', top: '10%', bottom: '16%' }),
       xAxis: {
         type: 'category',
-        data: analyticsData.rankOrder,
-        axisLabel: { fontFamily: 'var(--font-mono)', fontWeight: 600 },
+        data: analyticsData.rankOrder.map(formatSintaRankLabel),
+        axisLabel: createCategoricalAxisLabelConfig({ rotate: 0, fontSize: 11 }),
       },
       yAxis: {
         type: 'value',
@@ -187,7 +191,7 @@ export const RejectedApplicationsPage: React.FC<RejectedApplicationsPageProps> =
           type: 'bar',
           data: analyticsData.rankOrder.map((rnk) => ({
             value: analyticsData.rankCounts[rnk] || 0,
-            itemStyle: { color: getRankColor(rnk) },
+            itemStyle: { color: getSintaRankColor(rnk) },
           })),
           label: {
             show: true,
@@ -209,7 +213,8 @@ export const RejectedApplicationsPage: React.FC<RejectedApplicationsPageProps> =
           const [yIdx, rIdx, val] = params.data;
           const year = analyticsData.years[yIdx];
           const rank = analyticsData.rankOrder[rIdx];
-          return `${year} • SINTA ${rank}: <strong>${val.toLocaleString()}</strong> rejections`;
+          const desc = getSintaRankTooltipDescription(rank);
+          return `${year} • ${desc}: <strong>${val.toLocaleString()}</strong> rejections`;
         },
       },
       grid: { left: '8%', right: '5%', top: '8%', bottom: '18%', containLabel: true },
@@ -217,13 +222,13 @@ export const RejectedApplicationsPage: React.FC<RejectedApplicationsPageProps> =
         type: 'category',
         data: analyticsData.years.map(String),
         splitArea: { show: true },
-        axisLabel: { fontFamily: 'var(--font-mono)', fontWeight: 600 },
+        axisLabel: { fontFamily: 'var(--font-mono)', fontWeight: 600, interval: 0, hideOverlap: false },
       },
       yAxis: {
         type: 'category',
-        data: analyticsData.rankOrder,
+        data: analyticsData.rankOrder.map(formatSintaRankLabel),
         splitArea: { show: true },
-        axisLabel: { fontFamily: 'var(--font-mono)', fontWeight: 600 },
+        axisLabel: { fontFamily: 'var(--font-mono)', fontWeight: 600, interval: 0, hideOverlap: false },
       },
       visualMap: {
         min: 0,

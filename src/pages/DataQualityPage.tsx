@@ -4,6 +4,10 @@ import { DataQualityPublic, SummaryPublic, FactRejectedRecord, FactWithdrawnReco
 import { Alert, LoadingState } from '../components/common/UIPrimitives';
 import { SortableHeader, useSortableData } from '../components/common/SortableTable';
 import { BaseEChart } from '../components/charts/BaseEChart';
+import {
+  createCategoricalAxisLabelConfig,
+  createCategoricalGridConfig,
+} from '../lib/chartAxisConfig';
 import type { EChartsOption } from '../lib/echarts';
 
 export const DataQualityPage: React.FC = () => {
@@ -172,16 +176,11 @@ export const DataQualityPage: React.FC = () => {
         top: 0,
         textStyle: { fontFamily: 'var(--font-sans)', fontSize: 12, color: '#333333' },
       },
-      grid: { left: '3%', right: '4%', bottom: '3%', top: '40px', containLabel: true },
+      grid: createCategoricalGridConfig({ left: '3%', right: '4%', bottom: '8%', top: '40px' }),
       xAxis: {
         type: 'category',
         data: ['Matched (SINTA Identified)', 'Unmatched (Independent/Unindexed)', 'Ambiguous (Multi-match)'],
-        axisLabel: {
-          interval: 0,
-          fontFamily: 'var(--font-sans)',
-          fontSize: 11,
-          color: '#333333',
-        },
+        axisLabel: createCategoricalAxisLabelConfig({ rotate: 0, fontSize: 11, fontFamily: 'var(--font-sans)' }),
       },
       yAxis: {
         type: 'value',
@@ -265,16 +264,11 @@ export const DataQualityPage: React.FC = () => {
         top: 0,
         textStyle: { fontFamily: 'var(--font-sans)', fontSize: 12, color: '#333333' },
       },
-      grid: { left: '3%', right: '4%', bottom: '3%', top: '40px', containLabel: true },
+      grid: createCategoricalGridConfig({ left: '3%', right: '4%', bottom: '8%', top: '40px' }),
       xAxis: {
         type: 'category',
         data: categories,
-        axisLabel: {
-          interval: 0,
-          fontFamily: 'var(--font-sans)',
-          fontSize: 11,
-          color: '#333333',
-        },
+        axisLabel: createCategoricalAxisLabelConfig({ rotate: 0, fontSize: 11, fontFamily: 'var(--font-sans)' }),
       },
       yAxis: {
         type: 'value',
@@ -353,11 +347,7 @@ export const DataQualityPage: React.FC = () => {
       yAxis: {
         type: 'category',
         data: items.map(i => i.name).reverse(),
-        axisLabel: {
-          fontFamily: 'var(--font-sans)',
-          fontSize: 11,
-          color: '#333333',
-        },
+        axisLabel: createCategoricalAxisLabelConfig({ rotate: 0, fontSize: 11, fontFamily: 'var(--font-sans)' }),
       },
       series: [
         {

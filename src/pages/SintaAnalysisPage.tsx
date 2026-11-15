@@ -4,6 +4,12 @@ import { SummaryPublic, GlobalFilterState, FactRejectedRecord, FactWithdrawnReco
 import { RankBadge, Alert, LoadingState } from '../components/common/UIPrimitives';
 import { SortableHeader, useSortableData } from '../components/common/SortableTable';
 import { BaseEChart } from '../components/charts/BaseEChart';
+import {
+  formatSintaRankLabel,
+  getSintaRankTooltipDescription,
+  createCategoricalAxisLabelConfig,
+  createCategoricalGridConfig,
+} from '../lib/chartAxisConfig';
 import * as echarts from '../lib/echarts';
 
 interface SintaAnalysisPageProps {
@@ -84,17 +90,30 @@ export const SintaAnalysisPage: React.FC<SintaAnalysisPageProps> = ({
       tooltip: {
         trigger: 'axis',
         axisPointer: { type: 'shadow' },
+        formatter: (params: any) => {
+          if (!Array.isArray(params) || params.length === 0) return '';
+          const rank = params[0].name;
+          const desc = getSintaRankTooltipDescription(rank);
+          let s = `<div style="font-weight:700;">${desc}</div>`;
+          params.forEach((p: any) => {
+            s += `<div style="font-size:12px;display:flex;justify-content:space-between;gap:12px;">
+              <span>${p.marker} ${p.seriesName}</span>
+              <span style="font-family:var(--font-mono);font-weight:600;">${Number(p.value).toLocaleString()} records</span>
+            </div>`;
+          });
+          return s;
+        },
       },
       legend: {
         data: ['Rejection Records', 'Withdrawn Records'],
         bottom: 0,
         textStyle: { fontFamily: 'var(--font-sans)', fontSize: 12 },
       },
-      grid: { left: '4%', right: '4%', top: '10%', bottom: '15%', containLabel: true },
+      grid: createCategoricalGridConfig({ left: '4%', right: '4%', top: '10%', bottom: '16%' }),
       xAxis: {
         type: 'category',
-        data: sintaAnalytics.ranks,
-        axisLabel: { fontFamily: 'var(--font-mono)', fontWeight: 600 },
+        data: sintaAnalytics.ranks.map(formatSintaRankLabel),
+        axisLabel: createCategoricalAxisLabelConfig({ rotate: 0, fontSize: 11 }),
       },
       yAxis: {
         type: 'value',
@@ -144,7 +163,11 @@ export const SintaAnalysisPage: React.FC<SintaAnalysisPageProps> = ({
           const count = sintaAnalytics.curDoajCounts[idx];
           const total = sintaAnalytics.sintaTotals[idx];
           const pct = sintaAnalytics.curDoajPcts[idx];
-          return `SINTA ${rank}: <strong>${pct}%</strong> indexed (${count.toLocaleString()} / ${total.toLocaleString()} journals)`;
+          const desc = getSintaRankTooltipDescription(rank);
+          return `<div style="font-weight:700;">${desc}</div>
+            <div style="font-size:12px;margin-top:2px;">
+              DOAJ Indexing Rate: <strong>${pct}%</strong> (${count.toLocaleString()} / ${total.toLocaleString()} journals)
+            </div>`;
         },
       },
       grid: { left: '8%', right: '8%', top: '8%', bottom: '12%', containLabel: true },
@@ -156,8 +179,8 @@ export const SintaAnalysisPage: React.FC<SintaAnalysisPageProps> = ({
       },
       yAxis: {
         type: 'category',
-        data: [...sintaAnalytics.ranks].reverse(),
-        axisLabel: { fontFamily: 'var(--font-mono)', fontWeight: 600 },
+        data: [...sintaAnalytics.ranks].reverse().map(formatSintaRankLabel),
+        axisLabel: createCategoricalAxisLabelConfig({ rotate: 0, fontSize: 11 }),
       },
       series: [
         {
@@ -190,9 +213,13 @@ export const SintaAnalysisPage: React.FC<SintaAnalysisPageProps> = ({
           const total = sintaAnalytics.sintaTotals[idx];
           const rej = sintaAnalytics.distinctRejJournals[idx];
           const rate = total > 0 ? ((rej / total) * 100).toFixed(1) : '0';
-          return `${rank} Census: ${total.toLocaleString()} journals<br/>` +
-                 `Rejected Journals: <strong>${rej.toLocaleString()}</strong> (${rate}%)<br/>` +
-                 `Unrejected Population: ${(total - rej).toLocaleString()}`;
+          const desc = getSintaRankTooltipDescription(rank);
+          return `<div style="font-weight:700;">${desc}</div>
+            <div style="font-size:12px;margin-top:2px;">
+              Tier Population: ${total.toLocaleString()} journals<br/>
+              Rejected Journals: <strong>${rej.toLocaleString()}</strong> (${rate}%)<br/>
+              Unrejected Population: ${(total - rej).toLocaleString()}
+            </div>`;
         },
       },
       legend: {
@@ -200,11 +227,11 @@ export const SintaAnalysisPage: React.FC<SintaAnalysisPageProps> = ({
         bottom: 0,
         textStyle: { fontFamily: 'var(--font-sans)', fontSize: 12 },
       },
-      grid: { left: '4%', right: '4%', top: '10%', bottom: '15%', containLabel: true },
+      grid: createCategoricalGridConfig({ left: '4%', right: '4%', top: '10%', bottom: '16%' }),
       xAxis: {
         type: 'category',
-        data: sintaAnalytics.ranks,
-        axisLabel: { fontFamily: 'var(--font-mono)', fontWeight: 600 },
+        data: sintaAnalytics.ranks.map(formatSintaRankLabel),
+        axisLabel: createCategoricalAxisLabelConfig({ rotate: 0, fontSize: 11 }),
       },
       yAxis: {
         type: 'value',
@@ -249,7 +276,8 @@ export const SintaAnalysisPage: React.FC<SintaAnalysisPageProps> = ({
           const [yIdx, rIdx, val] = params.data;
           const year = sintaAnalytics.years[yIdx];
           const rank = sintaAnalytics.ranks[rIdx];
-          return `${year} • SINTA ${rank}: <strong>${val.toLocaleString()}</strong> rejections`;
+          const desc = getSintaRankTooltipDescription(rank);
+          return `${year} • ${desc}: <strong>${val.toLocaleString()}</strong> rejections`;
         },
       },
       grid: { left: '8%', right: '5%', top: '8%', bottom: '18%', containLabel: true },
@@ -257,13 +285,13 @@ export const SintaAnalysisPage: React.FC<SintaAnalysisPageProps> = ({
         type: 'category',
         data: sintaAnalytics.years.map(String),
         splitArea: { show: true },
-        axisLabel: { fontFamily: 'var(--font-mono)', fontWeight: 600 },
+        axisLabel: { fontFamily: 'var(--font-mono)', fontWeight: 600, interval: 0, hideOverlap: false },
       },
       yAxis: {
         type: 'category',
-        data: sintaAnalytics.ranks,
+        data: sintaAnalytics.ranks.map(formatSintaRankLabel),
         splitArea: { show: true },
-        axisLabel: { fontFamily: 'var(--font-mono)', fontWeight: 600 },
+        axisLabel: { fontFamily: 'var(--font-mono)', fontWeight: 600, interval: 0, hideOverlap: false },
       },
       visualMap: {
         min: 0,

@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { BaseEChart } from './BaseEChart';
 import { FactRejectedRecord, FactWithdrawnRecord, FactAcceptedRecord } from '../../types';
 import { formatMatchStatus } from '../../lib/matchingLabels';
+import { createCategoricalAxisLabelConfig, createCategoricalGridConfig } from '../../lib/chartAxisConfig';
 import * as echarts from '../../lib/echarts';
 
 interface JournalTimelineProps {
@@ -120,11 +121,11 @@ export const JournalEventTimelineChart: React.FC<JournalTimelineProps> = ({
         bottom: 0,
         textStyle: { fontFamily: 'var(--font-sans)', fontSize: 11 },
       },
-      grid: { left: '4%', right: '5%', top: '15%', bottom: '20%', containLabel: true },
+      grid: createCategoricalGridConfig({ left: '4%', right: '5%', top: '15%', bottom: '22%' }),
       xAxis: {
         type: 'category',
         data: dates,
-        axisLabel: { fontFamily: 'var(--font-mono)', fontSize: 11, rotate: dates.length > 5 ? 30 : 0 },
+        axisLabel: createCategoricalAxisLabelConfig({ rotate: dates.length > 5 ? 30 : 0, fontSize: 11 }),
       },
       yAxis: {
         type: 'category',
