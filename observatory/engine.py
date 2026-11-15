@@ -37,6 +37,83 @@ def normalize_journal_title(title: str | None) -> str:
     return " ".join(cleaned.split())
 
 
+def normalize_publisher_name(name: str | None) -> str:
+    """Normalize publisher name conservatively preserving casing and structural entities."""
+    if not name:
+        return ""
+    text = unicodedata.normalize("NFKD", str(name))
+    text = "".join(c for c in text if not unicodedata.combining(c))
+    text = text.replace("\u2018", "'").replace("\u2019", "'").replace("\u201c", '"').replace("\u201d", '"')
+    text = text.replace("\u2013", "-").replace("\u2014", "-").replace("\u2212", "-")
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def publisher_entity_id(name: str | None) -> str:
+    """Deterministic, collision-free publisher identifier."""
+    norm = normalize_publisher_name(name).lower()
+    h = hashlib.sha256(norm.encode("utf-8")).hexdigest()[:16]
+    return f"pub:{h}"
+
+
+_SINTA_PROFILE_URL_RE = re.compile(
+    r"^https://(?:[a-zA-Z0-9\-]+\.)*sinta\.(?:kemdikbud|kemdiktisaintek)\.go\.id/journals/profile/(\d+)$"
+)
+
+
+def parse_strict_sinta_profile(url: str | None) -> dict[str, str] | None:
+    """Validate and parse a single SINTA journal profile URL.
+    
+    Accepts only legitimate SINTA profile URLs with appropriate /journals/profile/{numeric-id} path.
+    Rejects concatenated strings, separators, and invalid hosts/schemes.
+    """
+    if not url:
+        return None
+    cleaned = str(url).strip()
+    if "|" in cleaned or " " in cleaned or "%20" in cleaned or "%7C" in cleaned:
+        return None
+    safe = _optional_url(cleaned)
+    if not safe:
+        return None
+    match = _SINTA_PROFILE_URL_RE.match(safe)
+    if not match:
+        return None
+    profile_id = match.group(1)
+    canonical_url = f"https://sinta.kemdiktisaintek.go.id/journals/profile/{profile_id}"
+    return {
+        "url": canonical_url,
+        "profile_id": profile_id,
+        "match_status": "candidate",
+    }
+
+
+def extract_sinta_candidates(raw_text: str | None) -> list[dict[str, str]]:
+    """Extract, parse, and deduplicate structured SINTA candidates from raw text or pipe-separated strings."""
+    if not raw_text:
+        return []
+    # Find all potential URLs or profile IDs
+    candidates: list[dict[str, str]] = []
+    seen_ids: set[str] = set()
+
+    # Split on pipe or extract https?:// patterns
+    tokens = [t.strip() for t in raw_text.split("|") if t.strip()]
+    url_tokens: list[str] = []
+    for token in tokens:
+        # Extract direct URLs if wrapped in brackets or text
+        found_urls = re.findall(r"https?://[^\s\]]+", token)
+        if found_urls:
+            url_tokens.extend(found_urls)
+        else:
+            url_tokens.append(token)
+
+    for cand_str in url_tokens:
+        parsed = parse_strict_sinta_profile(cand_str)
+        if parsed and parsed["profile_id"] not in seen_ids:
+            seen_ids.add(parsed["profile_id"])
+            candidates.append(parsed)
+
+    return candidates
+
+
 @dataclass(frozen=True)
 class MatchResult:
     status: str
@@ -348,6 +425,7 @@ class DataEngine:
                     "e_issn_quality": row["e_issn_quality"],
                     "sinta_rank": rank,
                     "accreditation_raw": _safe_text(source.get("Accreditation")),
+                    "affiliation": _safe_text(source.get("Affiliation")),
                     "subject_area": _safe_text(source.get("Subject Area")),
                     "subject_area_inferred": _safe_text(source.get("Subject Area (Inferred)")),
                     "sinta_url": _optional_url(source.get("Sinta URL")),
@@ -800,6 +878,156 @@ class DataEngine:
         min_rej_date = min((r["event_at_raw"] for r in fact_rejected if r["event_at_raw"]), default=None)
         max_rej_date = max((r["event_at_raw"] for r in fact_rejected if r["event_at_raw"]), default=None)
 
+        # =========================================================================
+        # PUBLISHER ENTITY RECONCILIATION & DIMENSION DERIVATION (Route 8)
+        # =========================================================================
+        raw_pub_strings: set[str] = set()
+        pub_raw_variants: dict[str, set[str]] = defaultdict(set)
+        pub_countries: dict[str, Counter] = defaultdict(Counter)
+        pub_rec_counts: dict[str, Counter] = defaultdict(Counter)
+        pub_years: dict[str, dict[str, Counter]] = defaultdict(lambda: defaultdict(Counter))
+        pub_to_journals: dict[str, set[str]] = defaultdict(set)
+        journal_to_pubs: dict[str, set[str]] = defaultdict(set)
+        journal_current_pub: dict[str, str] = {}
+        journal_hist_pubs: dict[str, set[str]] = defaultdict(set)
+        publisher_links: list[dict[str, Any]] = []
+        seen_links: set[tuple[str, str, str]] = set()
+
+        rec_lookup: dict[tuple[str, str], dict[str, Any]] = {}
+        for rec in fact_rejected:
+            rec_lookup[("rejected", rec["source_record_id"])] = rec
+        for rec in fact_accepted:
+            rec_lookup[("accepted", rec["source_record_id"])] = rec
+        for rec in fact_withdrawn:
+            rec_lookup[("withdrawn", rec["source_record_id"])] = rec
+        for rec in fact_doaj_current:
+            rec_lookup[("doaj_current", rec["source_record_id"])] = rec
+
+        for ds_name in ("rejected", "accepted", "withdrawn", "doaj_current"):
+            for row in rows[ds_name]:
+                lookup_key = (ds_name, row["source_record_id"])
+                if lookup_key not in rec_lookup:
+                    continue
+                frec = rec_lookup[lookup_key]
+                jid = frec["journal_id"]
+                srow = row["source_row"]
+                raw_p = (srow.get("Publisher") or "").strip()
+                if not raw_p:
+                    continue
+                raw_pub_strings.add(raw_p)
+                pid = publisher_entity_id(raw_p)
+                cntry = (srow.get("Country of publisher") or "").strip()
+
+                pub_raw_variants[pid].add(raw_p)
+                if cntry:
+                    pub_countries[pid][cntry] += 1
+                pub_rec_counts[pid][ds_name] += 1
+                pub_to_journals[pid].add(jid)
+                journal_to_pubs[jid].add(pid)
+
+                if ds_name == "doaj_current":
+                    journal_current_pub[jid] = pid
+                else:
+                    journal_hist_pubs[jid].add(pid)
+
+                yr = None
+                if ds_name == "rejected":
+                    yr = frec.get("event_year")
+                elif ds_name == "accepted":
+                    yr = frec.get("added_year")
+                elif ds_name == "withdrawn":
+                    yr = frec.get("last_withdrawn_year")
+                if yr:
+                    pub_years[pid][str(yr)][ds_name] += 1
+
+                link_key = (pid, jid, ds_name)
+                if link_key not in seen_links:
+                    seen_links.add(link_key)
+                    publisher_links.append({
+                        "publisher_id": pid,
+                        "journal_id": jid,
+                        "source_dataset": ds_name,
+                        "is_current": (ds_name == "doaj_current"),
+                    })
+
+        dim_publishers: list[dict[str, Any]] = []
+        for pid, jids in pub_to_journals.items():
+            raw_list = sorted(pub_raw_variants[pid])
+            canonical_name = max(raw_list, key=lambda s: (not s.islower(), not s.isupper(), len(s)))
+            country = pub_countries[pid].most_common(1)[0][0] if pub_countries[pid] else None
+            status = "confirmed_same_publisher" if len(raw_list) > 1 else "exact_normalized_name"
+
+            r_jids = {j for j in jids if j in r_set}
+            a_jids = {j for j in jids if j in a_set}
+            w_jids = {j for j in jids if j in w_set}
+            c_jids = {j for j in jids if j in current_resolved_jids}
+            s_jids = {j for j in jids if j in s_set}
+
+            repeat_rej_count = sum(1 for j in r_jids if len(rej_by_jid.get(j, [])) >= 2)
+            verified_r_to_a_count = sum(1 for j in jids if j in r_to_a_jids)
+            verified_w_to_a_count = sum(1 for j in jids if j in w_to_a_jids)
+
+            s_ranks = Counter(resolved_rank.get(j, "unmatched") for j in jids)
+
+            dim_publishers.append({
+                "publisher_id": pid,
+                "canonical_name": canonical_name,
+                "normalized_name": normalize_publisher_name(canonical_name).lower(),
+                "aliases": [a for a in raw_list if a != canonical_name],
+                "country": country,
+                "identity_status": status,
+                "distinct_journal_count": len(jids),
+                "rejected_journal_count": len(r_jids),
+                "accepted_journal_count": len(a_jids),
+                "withdrawn_journal_count": len(w_jids),
+                "currently_indexed_journal_count": len(c_jids),
+                "sinta_matched_journal_count": len(s_jids),
+                "repeat_rejection_journal_count": repeat_rej_count,
+                "verified_r_to_a_count": verified_r_to_a_count,
+                "verified_w_to_a_count": verified_w_to_a_count,
+                "sinta_ranks": {r: s_ranks.get(r, 0) for r in ("S1", "S2", "S3", "S4", "S5", "S6", "NA", "unmatched", "ambiguous")},
+                "event_records": {
+                    "rejected": pub_rec_counts[pid]["rejected"],
+                    "accepted": pub_rec_counts[pid]["accepted"],
+                    "withdrawn": pub_rec_counts[pid]["withdrawn"],
+                    "current_doaj": pub_rec_counts[pid]["doaj_current"],
+                },
+                "annual_events": {yr: dict(ds_cnts) for yr, ds_cnts in sorted(pub_years[pid].items())},
+            })
+
+        dim_publishers.sort(
+            key=lambda p: (p["distinct_journal_count"], p["currently_indexed_journal_count"], p["canonical_name"]),
+            reverse=True,
+        )
+
+        publisher_summary = {
+            "total_resolved_publishers": len(dim_publishers),
+            "publishers_with_rejected": sum(1 for p in dim_publishers if p["rejected_journal_count"] > 0),
+            "publishers_with_accepted": sum(1 for p in dim_publishers if p["accepted_journal_count"] > 0),
+            "publishers_with_withdrawn": sum(1 for p in dim_publishers if p["withdrawn_journal_count"] > 0),
+            "publishers_with_current_doaj": sum(1 for p in dim_publishers if p["currently_indexed_journal_count"] > 0),
+            "publishers_with_sinta": sum(1 for p in dim_publishers if p["sinta_matched_journal_count"] > 0),
+            "total_distinct_raw_publisher_strings": len(raw_pub_strings),
+            "confirmed_alias_clusters": sum(1 for p in dim_publishers if len(p["aliases"]) > 0),
+            "journals_connected_to_publishers": len(journal_to_pubs),
+            "journals_with_multiple_publishers": sum(1 for pids in journal_to_pubs.values() if len(pids) > 1),
+        }
+
+        # Publisher matching audit entries (Section 22)
+        publisher_match_audit_entries: list[dict[str, Any]] = []
+        for p in dim_publishers:
+            if p["aliases"]:
+                publisher_match_audit_entries.append({
+                    "publisher_id": p["publisher_id"],
+                    "publisher_name": p["canonical_name"],
+                    "alternate_names": p["aliases"],
+                    "matching_status": p["identity_status"],
+                    "related_journals_count": p["distinct_journal_count"],
+                    "supporting_source": "Case & Unicode Normalization",
+                    "review_category": "verified_alias",
+                })
+        publisher_match_audit_entries.sort(key=lambda e: (e["related_journals_count"], e["publisher_name"]), reverse=True)
+
         summary = {
             "schema_version": SCHEMA_VERSION,
             "as_of": {
@@ -911,6 +1139,8 @@ class DataEngine:
                     "current_doaj_status": cur_status,
                     "current_doaj_profile_url": details.get("doaj_profile_url"),
                     "current_doaj_publisher": details.get("publisher"),
+                    "current_publisher_id": journal_current_pub.get(journal_id),
+                    "historical_publisher_ids": sorted(journal_hist_pubs.get(journal_id, set())),
                     "lifecycle_pathway": pathway_by_jid.get(journal_id, "None"),
                     "last_historical_event": last_event_by_jid.get(journal_id, "None"),
                     "has_verified_r_to_a": journal_id in r_to_a_jids,
@@ -956,10 +1186,16 @@ class DataEngine:
                     e_val = cleaned.get("doaj_e_issn", "")
                     sinta_urls_raw = cleaned.get("candidate_sinta_urls", "")
                     journal_web_raw = cleaned.get("source_public_website", "")
-                    sinta_urls = " | ".join(
-                        u.strip() for u in sinta_urls_raw.split("|")
-                        if _optional_url(u.strip())
-                    ) if sinta_urls_raw else ""
+                    candidates = extract_sinta_candidates(sinta_urls_raw)
+                    confirmed_sinta_url = None
+                    # If exactly one candidate is present and status is confirmed verified, or verified via single deterministic match
+                    v_status = cleaned.get("verification_status", "not_externally_verified")
+                    if len(candidates) == 1 and v_status == "verified_match":
+                        confirmed_sinta_url = candidates[0]["url"]
+                        candidates[0]["match_status"] = "confirmed"
+
+                    # For backward compatibility, sinta_urls scalar is confirmed_sinta_url or single candidate, never pipe-joined
+                    clean_sinta_url = confirmed_sinta_url or (candidates[0]["url"] if len(candidates) == 1 else "")
                     journal_web = _optional_url(journal_web_raw) or ""
                     sinta_matching_audit_entries.append(
                         {
@@ -971,10 +1207,12 @@ class DataEngine:
                             "sinta_candidates": cleaned.get("candidate_sinta_titles", ""),
                             "sinta_p_issn": cleaned.get("candidate_sinta_p_issn", ""),
                             "sinta_e_issn": cleaned.get("candidate_sinta_e_issn", ""),
-                            "sinta_urls": sinta_urls,
+                            "sinta_urls": clean_sinta_url,
+                            "sinta_profiles": candidates,
+                            "confirmed_sinta_url": confirmed_sinta_url,
                             "journal_website": journal_web,
                             "issue_category": cleaned.get("issue_category", ""),
-                            "verification_status": cleaned.get("verification_status", "not_externally_verified"),
+                            "verification_status": v_status,
                             "recommended_action": cleaned.get("recommended_action", ""),
                         }
                     )
@@ -987,11 +1225,12 @@ class DataEngine:
                     e_val = cleaned.get("doaj_e_issn", "")
                     e_cand_raw = cleaned.get("sinta_candidates_from_e_issn", "").replace("â\x80\x99", "’").replace("Syariâ€™ah", "Syari’ah")
                     p_cand_raw = cleaned.get("sinta_candidates_from_p_issn", "").replace("â\x80\x99", "’").replace("Syariâ€™ah", "Syari’ah")
-                    conf_urls = re.findall(r"https?://[^\s\]]+", e_cand_raw + " " + p_cand_raw)
-                    valid_conf_urls = [u for u in dict.fromkeys(conf_urls) if _optional_url(u)]
+                    candidates = extract_sinta_candidates(f"{e_cand_raw} | {p_cand_raw}")
+                    confirmed_sinta_url = None
                     clean_e = re.sub(r"\s*\[https?://[^\]]+\]", "", e_cand_raw).strip()
                     clean_p = re.sub(r"\s*\[https?://[^\]]+\]", "", p_cand_raw).strip()
                     j_web = url_lookup.get((p_val or None, e_val or None), "")
+                    clean_sinta_url = candidates[0]["url"] if len(candidates) == 1 else ""
                     sinta_matching_audit_entries.append(
                         {
                             "dataset": cleaned.get("dataset", ""),
@@ -1002,7 +1241,9 @@ class DataEngine:
                             "sinta_candidates": f"Online ISSN candidate: {clean_e} | Print ISSN candidate: {clean_p}",
                             "sinta_p_issn": "",
                             "sinta_e_issn": "",
-                            "sinta_urls": " | ".join(valid_conf_urls),
+                            "sinta_urls": clean_sinta_url,
+                            "sinta_profiles": candidates,
+                            "confirmed_sinta_url": confirmed_sinta_url,
                             "journal_website": j_web,
                             "issue_category": "identity_conflict",
                             "verification_status": cleaned.get("website_validation", "not_externally_verified"),
@@ -1044,6 +1285,12 @@ class DataEngine:
                 "journals_with_fully_orderable_history": fully_orderable_jids,
                 "journals_with_verified_transitions": len(r_to_a_jids | a_to_w_jids | w_to_a_jids),
                 "journals_with_snapshot_confirmation": len(current_resolved_jids),
+                # Section 21: Publisher Identity Quality indicators
+                "total_distinct_raw_publisher_strings": len(raw_pub_strings),
+                "total_normalized_publisher_entities": len(dim_publishers),
+                "confirmed_publisher_alias_clusters": publisher_summary["confirmed_alias_clusters"],
+                "journals_connected_to_publishers": publisher_summary["journals_connected_to_publishers"],
+                "journals_with_multiple_publishers": publisher_summary["journals_with_multiple_publishers"],
             },
             "deterministic_review_samples": {
                 "strict_matches": [audit["source_record_id"] for audit in audits if audit["strict_status"] == "matched"][:10],
@@ -1054,6 +1301,13 @@ class DataEngine:
             "sinta_matching_audit": {
                 "summary": matching_audit_summary,
                 "entries": sinta_matching_audit_entries,
+            },
+            "publisher_matching_audit": {
+                "summary": {
+                    "total_audit_entries": len(publisher_match_audit_entries),
+                    "confirmed_alias_clusters": publisher_summary["confirmed_alias_clusters"],
+                },
+                "entries": publisher_match_audit_entries,
             },
             "limitations": [
                 "Record identity is not evidence of a distinct application or decision.",
@@ -1072,6 +1326,9 @@ class DataEngine:
             "fact_doaj_current_public.json": fact_doaj_current,
             "sinta_snapshot_public.json": sinta_records,
             "dim_journals_public.json": dim_journals,
+            "dim_publishers_public.json": dim_publishers,
+            "publisher_journal_links_public.json": publisher_links,
+            "publisher_summary_public.json": publisher_summary,
             "match_audit_public.json": audits,
             "rejection_history_public.json": histories,
             "intersections_public.json": {

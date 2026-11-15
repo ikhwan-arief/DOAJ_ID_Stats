@@ -6,6 +6,7 @@ import {
   loadFactAccepted,
   loadFactDoajCurrent,
   loadSintaSnapshot,
+  loadDimPublishers,
 } from '../data/loader';
 import {
   DimJournalRecord,
@@ -14,6 +15,7 @@ import {
   FactAcceptedRecord,
   FactDoajCurrentRecord,
   SintaSnapshotRecord,
+  PublisherRecord,
   GlobalFilterState,
   CurrentDoajStatus,
 } from '../types';
@@ -32,6 +34,7 @@ interface JournalExplorerPageProps {
   filters: GlobalFilterState;
   journalSlug: string | null;
   onNavigateToJournal: (slug: string) => void;
+  onNavigateToPublisher?: (publisherId: string) => void;
   onBack: () => void;
   backTargetLabel?: string;
 }
@@ -40,6 +43,7 @@ export const JournalExplorerPage: React.FC<JournalExplorerPageProps> = ({
   filters,
   journalSlug,
   onNavigateToJournal,
+  onNavigateToPublisher,
   onBack,
   backTargetLabel,
 }) => {
@@ -49,6 +53,7 @@ export const JournalExplorerPage: React.FC<JournalExplorerPageProps> = ({
   const [accepted, setAccepted] = useState<FactAcceptedRecord[] | null>(null);
   const [doajCurrent, setDoajCurrent] = useState<FactDoajCurrentRecord[] | null>(null);
   const [sintas, setSintas] = useState<Map<string, SintaSnapshotRecord> | null>(null);
+  const [publishersMap, setPublishersMap] = useState<Map<string, PublisherRecord> | null>(null);
   const [localSearch, setLocalSearch] = useState<string>('');
   const [isDropdownOpen, setIsDropdownOpen] = useState<boolean>(false);
   const [highlightedIndex, setHighlightedIndex] = useState<number>(-1);
@@ -66,8 +71,9 @@ export const JournalExplorerPage: React.FC<JournalExplorerPageProps> = ({
       loadFactAccepted(),
       loadFactDoajCurrent(),
       loadSintaSnapshot(),
+      loadDimPublishers(),
     ])
-      .then(([dim, rej, withdr, acc, curr, sintaList]) => {
+      .then(([dim, rej, withdr, acc, curr, sintaList, pubList]) => {
         setJournals(dim);
         setRejections(rej);
         setWithdrawns(withdr);
@@ -76,6 +82,9 @@ export const JournalExplorerPage: React.FC<JournalExplorerPageProps> = ({
         const map = new Map<string, SintaSnapshotRecord>();
         sintaList.forEach((s) => map.set(s.journal_id, s));
         setSintas(map);
+        const pMap = new Map<string, PublisherRecord>();
+        pubList.forEach((p) => pMap.set(p.publisher_id, p));
+        setPublishersMap(pMap);
       })
       .catch((err) => setError(err.message || 'Failed to load journal explorer data'));
   }, []);
@@ -778,10 +787,41 @@ export const JournalExplorerPage: React.FC<JournalExplorerPageProps> = ({
 
               <div>
                 <span style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)', textTransform: 'uppercase' }}>
-                  Publisher
+                  DOAJ Publisher
                 </span>
                 <div style={{ fontWeight: 600, fontSize: 'var(--text-sm)', marginTop: '2px' }}>
-                  {publisher}
+                  {activeJournal.current_publisher_id && publishersMap?.get(activeJournal.current_publisher_id) ? (
+                    <button
+                      type="button"
+                      onClick={() => onNavigateToPublisher?.(activeJournal.current_publisher_id!)}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: 'var(--sanguine)',
+                        textDecoration: 'underline',
+                        cursor: 'pointer',
+                        padding: 0,
+                        textAlign: 'left',
+                        fontFamily: 'inherit',
+                        fontSize: 'inherit',
+                        fontWeight: 600,
+                      }}
+                      title="View Publisher Profile"
+                    >
+                      {publishersMap.get(activeJournal.current_publisher_id)!.canonical_name} →
+                    </button>
+                  ) : (
+                    publisher
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <span style={{ fontSize: 'var(--text-xs)', color: 'var(--dark-grey)', textTransform: 'uppercase' }}>
+                  SINTA Affiliation
+                </span>
+                <div style={{ fontWeight: 600, fontSize: 'var(--text-sm)', marginTop: '2px', color: 'var(--dark-grey)' }}>
+                  {activeSinta?.affiliation || '—'}
                 </div>
               </div>
 

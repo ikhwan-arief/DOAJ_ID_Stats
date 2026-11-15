@@ -11,6 +11,9 @@ import {
   DimJournalRecord,
   SintaSnapshotRecord,
   DataQualityPublic,
+  PublisherRecord,
+  PublisherJournalLink,
+  PublisherSummary,
 } from '../types';
 
 let cachedSummary: SummaryPublic | null = null;
@@ -23,6 +26,9 @@ let cachedHistory: RejectionHistoryRecord[] | null = null;
 let cachedDimJournals: DimJournalRecord[] | null = null;
 let cachedSinta: SintaSnapshotRecord[] | null = null;
 let cachedQuality: DataQualityPublic | null = null;
+let cachedPublishers: PublisherRecord[] | null = null;
+let cachedPublisherLinks: PublisherJournalLink[] | null = null;
+let cachedPublisherSummary: PublisherSummary | null = null;
 
 const BASE_URL = import.meta.env.BASE_URL || './';
 
@@ -94,4 +100,22 @@ export async function loadDataQuality(): Promise<DataQualityPublic> {
   if (cachedQuality) return cachedQuality;
   cachedQuality = await fetchPublicJson<DataQualityPublic>('data_quality_public.json');
   return cachedQuality;
+}
+
+export async function loadDimPublishers(): Promise<PublisherRecord[]> {
+  if (cachedPublishers) return cachedPublishers;
+  cachedPublishers = await fetchPublicJson<PublisherRecord[]>('dim_publishers_public.json');
+  return cachedPublishers;
+}
+
+export async function loadPublisherJournalLinks(): Promise<PublisherJournalLink[]> {
+  if (cachedPublisherLinks) return cachedPublisherLinks;
+  cachedPublisherLinks = await fetchPublicJson<PublisherJournalLink[]>('publisher_journal_links_public.json');
+  return cachedPublisherLinks;
+}
+
+export async function loadPublisherSummary(): Promise<PublisherSummary> {
+  if (cachedPublisherSummary) return cachedPublisherSummary;
+  cachedPublisherSummary = await fetchPublicJson<PublisherSummary>('publisher_summary_public.json');
+  return cachedPublisherSummary;
 }

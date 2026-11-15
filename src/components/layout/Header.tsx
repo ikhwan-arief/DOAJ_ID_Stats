@@ -7,7 +7,8 @@ export type RouteId =
   | 'withdrawn'
   | 'sinta'
   | 'explorer'
-  | 'quality';
+  | 'quality'
+  | 'publishers';
 
 interface HeaderProps {
   currentRoute: RouteId;
@@ -25,6 +26,7 @@ export const Header: React.FC<HeaderProps> = ({ currentRoute, onRouteChange }) =
     { id: 'sinta', label: '5. SINTA Analysis' },
     { id: 'explorer', label: '6. Journal Explorer' },
     { id: 'quality', label: '7. Data Quality' },
+    { id: 'publishers', label: '8. Publisher Analysis' },
   ];
 
   return (

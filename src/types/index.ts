@@ -331,12 +331,76 @@ export interface DimJournalRecord {
   current_doaj_status?: CurrentDoajStatus;
   current_doaj_profile_url?: string | null;
   current_doaj_publisher?: string | null;
+  current_publisher_id?: string | null;
+  historical_publisher_ids?: string[];
   lifecycle_pathway?: string;
   last_historical_event?: string;
   has_verified_r_to_a?: boolean;
   has_verified_a_to_w?: boolean;
   has_verified_w_to_a?: boolean;
   has_verified_a_w_a?: boolean;
+}
+
+export type PublisherIdentityStatus =
+  | 'confirmed_same_publisher'
+  | 'exact_normalized_name'
+  | 'verified_alias'
+  | 'unresolved_relationship';
+
+export interface PublisherRecord {
+  publisher_id: string;
+  canonical_name: string;
+  normalized_name: string;
+  aliases: string[];
+  country: string | null;
+  identity_status: PublisherIdentityStatus;
+  distinct_journal_count: number;
+  rejected_journal_count: number;
+  accepted_journal_count: number;
+  withdrawn_journal_count: number;
+  currently_indexed_journal_count: number;
+  sinta_matched_journal_count: number;
+  repeat_rejection_journal_count: number;
+  verified_r_to_a_count: number;
+  verified_w_to_a_count: number;
+  sinta_ranks: Record<string, number>;
+  event_records: {
+    rejected: number;
+    accepted: number;
+    withdrawn: number;
+    current_doaj: number;
+  };
+  annual_events: Record<string, Record<string, number>>;
+}
+
+export interface PublisherJournalLink {
+  publisher_id: string;
+  journal_id: string;
+  source_dataset: 'rejected' | 'accepted' | 'withdrawn' | 'doaj_current';
+  is_current: boolean;
+}
+
+export interface PublisherSummary {
+  total_resolved_publishers: number;
+  publishers_with_rejected: number;
+  publishers_with_accepted: number;
+  publishers_with_withdrawn: number;
+  publishers_with_current_doaj: number;
+  publishers_with_sinta: number;
+  total_distinct_raw_publisher_strings: number;
+  confirmed_alias_clusters: number;
+  journals_connected_to_publishers: number;
+  journals_with_multiple_publishers: number;
+}
+
+export interface PublisherMatchingAuditEntry {
+  publisher_id: string;
+  publisher_name: string;
+  alternate_names: string[];
+  matching_status: string;
+  related_journals_count: number;
+  supporting_source: string;
+  review_category: string;
 }
 
 export interface SintaSnapshotRecord {
@@ -352,6 +416,7 @@ export interface SintaSnapshotRecord {
   e_issn_quality: IssnQuality;
   sinta_rank: SintaRank;
   accreditation_raw: string;
+  affiliation?: string | null;
   subject_area: string | null;
   subject_area_inferred?: string | null;
   sinta_url: string;
@@ -401,6 +466,11 @@ export interface DataQualityPublic {
     journals_with_fully_orderable_history?: number;
     journals_with_verified_transitions?: number;
     journals_with_snapshot_confirmation?: number;
+    total_distinct_raw_publisher_strings?: number;
+    total_normalized_publisher_entities?: number;
+    confirmed_publisher_alias_clusters?: number;
+    journals_connected_to_publishers?: number;
+    journals_with_multiple_publishers?: number;
   };
   deterministic_review_samples: {
     placeholder_records: string[];
@@ -429,9 +499,30 @@ export interface DataQualityPublic {
       sinta_p_issn: string;
       sinta_e_issn: string;
       sinta_urls: string;
+      sinta_profiles?: Array<{
+        url: string;
+        profile_id: string;
+        match_status: string;
+      }>;
+      confirmed_sinta_url?: string | null;
       verification_status: string;
       journal_website: string;
       recommended_action: string;
+    }>;
+  };
+  publisher_matching_audit?: {
+    summary: {
+      total_audit_entries: number;
+      confirmed_alias_clusters: number;
+    };
+    entries: Array<{
+      publisher_id: string;
+      publisher_name: string;
+      alternate_names: string[];
+      matching_status: string;
+      related_journals_count: number;
+      supporting_source: string;
+      review_category: string;
     }>;
   };
 }

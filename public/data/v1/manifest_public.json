@@ -1,16 +1,19 @@
 {
-  "etl_commit": "1a818b1ebaacc5e00dc4c6446e9b9cd70d214c71",
+  "etl_commit": "d88b17c437ea5805b46baa95164cc83749eb8ab5",
   "outputs": {
-    "data_quality_public.json": "4f740e06ca2b87e6f5a33a796f2f70f386779def1b5a1c87dac5ad05001d6904",
-    "dim_journals_public.json": "6cee416ae69f8e07664f087c20592c5633615263f26bb60aec653850de29528a",
+    "data_quality_public.json": "ccb4eee518af45363f76e7c758a99e5a4b29ffda03731a0572528e3c1e189f38",
+    "dim_journals_public.json": "42d336b8e2bbcd47d7e1a9ae157ffe1292f8cd87c22175599708fd25a5e5d15b",
+    "dim_publishers_public.json": "075074e3a7ab441e1b250ab4d1896d5fb8e3c22f23a1b562526b189d220e9886",
     "fact_accepted_public.json": "97492444e4150bde71c1eda25ff0364107cebb2a28869049d9fe2c576f4a884a",
     "fact_doaj_current_public.json": "7073b17f83cebe8d9e1aa7658b791566cffb8fc828ccf5d1208e0a82f74c2136",
     "fact_rejected_public.json": "c8350b0774b4d81a7c0889a04400db9c5707bd26bc5d986ddc56d283c57c393d",
     "fact_withdrawn_public.json": "5d19b77c35a90c7c2a87b41152a94facd41f798786ba41e01b561112104c8f3f",
     "intersections_public.json": "9e12accd839754fd826dc3cd0df2dd154529774c831c73717c02e9bbcc6c9f38",
     "match_audit_public.json": "2d7dab7e68ab8f3ca9219a020dbade0c1115d52a51b4c696ac01ac2c7e4fa764",
+    "publisher_journal_links_public.json": "6a217aea0d8b1f6b580bc42bfaf005a7a9baae97bc4c6310eebe97190a654437",
+    "publisher_summary_public.json": "8cee97ae1c733384d07fb2298bfb6dfdf30c8f4a34fea7b471ecfd96c061e8f9",
     "rejection_history_public.json": "8e2ba7ea587948aea7bd3c8827fa78d31e3cdf8352dfdaf65b29472f05ccd251",
-    "sinta_snapshot_public.json": "6b9eae2d24ffe828403585a3c7ba7ba3f35d0ab6ce7017c4837b4e688188ed4f",
+    "sinta_snapshot_public.json": "543fba4bef623b18adb626983afc1c2740e207aa28095b6adf59454578450ec6",
     "summary_public.json": "7cd26b6c1f7cdc0410b53fbba75f5bda239e6160e7b2741b4b673a5ce05da80f"
   },
   "schema_version": "1.0.0",

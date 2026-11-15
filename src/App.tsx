@@ -12,6 +12,8 @@ import { WithdrawnJournalsPage } from './pages/WithdrawnJournalsPage';
 import { SintaAnalysisPage } from './pages/SintaAnalysisPage';
 import { JournalExplorerPage } from './pages/JournalExplorerPage';
 import { DataQualityPage } from './pages/DataQualityPage';
+import { PublisherAnalysisPage } from './pages/PublisherAnalysisPage';
+import { PublisherProfilePage } from './pages/PublisherProfilePage';
 
 // Shared data loader for identity resolution
 import { loadDimJournals, loadSintaSnapshot, loadFactDoajCurrent, loadFactRejected, loadFactWithdrawn, loadFactAccepted } from './data/loader';
@@ -30,6 +32,7 @@ const INITIAL_FILTERS: GlobalFilterState = {
 interface ParsedHash {
   route: RouteId;
   journalSlug: string | null;
+  publisherId: string | null;
 }
 
 export const App: React.FC = () => {
@@ -54,19 +57,25 @@ export const App: React.FC = () => {
       .catch((err) => console.error('Failed to build identity index:', err));
   }, []);
 
-  // Parse hash into route and optional journal slug
+  // Parse hash into route and optional journal slug or publisher id
   const parseHash = (): ParsedHash => {
     const raw = window.location.hash.replace(/^#\/?/, '').trim();
-    if (!raw) return { route: 'overview', journalSlug: null };
+    if (!raw) return { route: 'overview', journalSlug: null, publisherId: null };
 
     // Support #/journal/{slug} or #/explorer/{slug}
     if (raw.startsWith('journal/')) {
       const slug = raw.slice('journal/'.length).trim();
-      return { route: 'explorer', journalSlug: slug || null };
+      return { route: 'explorer', journalSlug: slug || null, publisherId: null };
     }
     if (raw.startsWith('explorer/')) {
       const slug = raw.slice('explorer/'.length).trim();
-      return { route: 'explorer', journalSlug: slug || null };
+      return { route: 'explorer', journalSlug: slug || null, publisherId: null };
+    }
+
+    // Support #/publisher/{id}
+    if (raw.startsWith('publisher/')) {
+      const pubId = raw.slice('publisher/'.length).trim();
+      return { route: 'publishers', journalSlug: null, publisherId: pubId ? decodeURIComponent(pubId) : null };
     }
 
     const validRoutes: RouteId[] = [
@@ -77,13 +86,14 @@ export const App: React.FC = () => {
       'sinta',
       'explorer',
       'quality',
+      'publishers',
     ];
 
     if (validRoutes.includes(raw as RouteId)) {
-      return { route: raw as RouteId, journalSlug: null };
+      return { route: raw as RouteId, journalSlug: null, publisherId: null };
     }
 
-    return { route: 'overview', journalSlug: null };
+    return { route: 'overview', journalSlug: null, publisherId: null };
   };
 
   const [currentParsed, setCurrentParsed] = useState<ParsedHash>(parseHash);
@@ -108,6 +118,7 @@ export const App: React.FC = () => {
             sinta: 'SINTA Analysis',
             explorer: 'Journal Search',
             quality: 'Data Quality',
+            publishers: 'Publisher Analysis',
           };
           previousRouteNameRef.current = routeLabels[prev.route] || 'Previous Page';
         }
@@ -125,6 +136,11 @@ export const App: React.FC = () => {
 
   const handleNavigateToJournalSlug = (slug: string) => {
     window.location.hash = `#/journal/${slug}`;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleNavigateToPublisher = (publisherId: string) => {
+    window.location.hash = `#/publisher/${encodeURIComponent(publisherId)}`;
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -202,12 +218,31 @@ export const App: React.FC = () => {
             filters={filters}
             journalSlug={currentParsed.journalSlug}
             onNavigateToJournal={handleNavigateToJournalSlug}
+            onNavigateToPublisher={handleNavigateToPublisher}
             onBack={handleBackNavigation}
             backTargetLabel={previousRouteNameRef.current || undefined}
           />
         );
       case 'quality':
         return <DataQualityPage />;
+      case 'publishers':
+        if (currentParsed.publisherId) {
+          return (
+            <PublisherProfilePage
+              publisherId={currentParsed.publisherId}
+              onNavigateToJournal={handleSelectJournalById}
+              onBackToDirectory={() => handleRouteChange('publishers')}
+              onBackToPrevious={previousRouteRef.current ? () => handleRouteChange(previousRouteRef.current!) : undefined}
+              previousRouteLabel={previousRouteNameRef.current || undefined}
+            />
+          );
+        }
+        return (
+          <PublisherAnalysisPage
+            filters={filters}
+            onSelectPublisher={handleNavigateToPublisher}
+          />
+        );
       default:
         return (
           <OverviewPage

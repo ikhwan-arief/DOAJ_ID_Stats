@@ -130,6 +130,17 @@ def verify_kpis(payloads: dict[str, object]) -> None:
     require(cur["sinta_only_journals"] == 14104, "doaj_current sinta only mismatch")
     require(cur["total_two_set_universe"] == 16829, "doaj_current 2-set universe mismatch")
 
+    # Publisher entity reconciliation (Route 8)
+    publishers = payloads["dim_publishers_public.json"]
+    pub_links = payloads["publisher_journal_links_public.json"]
+    pub_summary = payloads["publisher_summary_public.json"]
+    require(len(publishers) == pub_summary["total_resolved_publishers"], "publisher total count mismatch")
+    require(len(publishers) == 6025, "resolved publisher count must be 6025")
+    require(len(pub_links) == 12154, "publisher journal links count must be 12154")
+    require(pub_summary["journals_connected_to_publishers"] == 8614, "journals connected to publishers mismatch")
+    require(pub_summary["journals_with_multiple_publishers"] == 1423, "journals with multiple publishers mismatch")
+    require(pub_summary["confirmed_alias_clusters"] == 272, "confirmed alias clusters mismatch")
+
 
 def verify_filter_partitions(payloads: dict[str, object]) -> None:
     for filename, year_field in (
