@@ -428,34 +428,30 @@ export const DataQualityPage: React.FC = () => {
         />
       </div>
 
-      {/* Protocol Sections Grid */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-          gap: 'var(--space-4)',
-        }}
-      >
-        {/* Placeholder ISSN Policy */}
-        <section className="card">
+      {/* Methodology & Quality Protocols (Unified Single Container) */}
+      <section className="card" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+        {/* 1. Placeholder ISSN Policy */}
+        <div>
           <h3 style={{ fontSize: 'var(--text-lg)', marginBottom: 'var(--space-2)' }}>
             1. Placeholder & Anomaly ISSN Retention
           </h3>
-          <p style={{ fontSize: 'var(--text-sm)', color: 'var(--dark-grey)', lineHeight: 1.6 }}>
+          <p style={{ fontSize: 'var(--text-sm)', color: 'var(--dark-grey)', lineHeight: 1.6, margin: 0 }}>
             In compliance with project acceptance criteria, placeholder strings such as{' '}
             <code className="font-mono">XXXX-XXXX</code> and <code className="font-mono">0000-0XXX</code> (37 exact occurrences
             in the source datasets) are <strong>strictly preserved verbatim</strong> in raw fields. They are flagged with
             quality tag <code className="font-mono">placeholder</code> and are never used as solitary journal match keys.
             Unregistered or non-standard ISSN strings are preserved rather than silently dropped or altered.
           </p>
-        </section>
+        </div>
 
-        {/* Strict vs Extended Matching Protocol */}
-        <section className="card">
+        <hr style={{ border: 'none', borderTop: '1px solid var(--sand-medium)', margin: 0 }} />
+
+        {/* 2. Strict vs Extended Matching Protocol */}
+        <div>
           <h3 style={{ fontSize: 'var(--text-lg)', marginBottom: 'var(--space-2)' }}>
             2. Deterministic Matching Protocol
           </h3>
-          <p style={{ fontSize: 'var(--text-sm)', color: 'var(--dark-grey)', lineHeight: 1.6 }}>
+          <p style={{ fontSize: 'var(--text-sm)', color: 'var(--dark-grey)', lineHeight: 1.6, margin: 0 }}>
             <strong>Strict Matching:</strong> Requires exact medium-to-medium correspondence (Print-to-Print or
             Online-to-Online) using normalized 8-character hyphenated ISSNs with valid modulus 11 checksums.
             Strict results yield {summary.strict_match_status_counts.matched.toLocaleString()} matched and{' '}
@@ -464,14 +460,16 @@ export const DataQualityPage: React.FC = () => {
             <strong>Extended Matching:</strong> Permits cross-medium alignment (Print-to-Online or Online-to-Print)
             when unambiguous. Exactly {quality.quality_counts.extended_ambiguous_records} extended record is tagged as ambiguous.
           </p>
-        </section>
+        </div>
 
-        {/* URL Privacy & DOAJ Route Blocking */}
-        <section className="card">
+        <hr style={{ border: 'none', borderTop: '1px solid var(--sand-medium)', margin: 0 }} />
+
+        {/* 3. URL Privacy & DOAJ Route Blocking */}
+        <div>
           <h3 style={{ fontSize: 'var(--text-lg)', marginBottom: 'var(--space-2)' }}>
             3. DOAJ Link Policy & Categorical Admin Blocking
           </h3>
-          <p style={{ fontSize: 'var(--text-sm)', color: 'var(--dark-grey)', lineHeight: 1.6 }}>
+          <p style={{ fontSize: 'var(--text-sm)', color: 'var(--dark-grey)', lineHeight: 1.6, margin: 0 }}>
             The source column <code className="font-mono">URL in DOAJ</code> contains two distinct formats:
             <br />
             • Withdrawn records link to public journal tables of contents (<code className="font-mono">https://doaj.org/toc/...</code>).
@@ -481,28 +479,32 @@ export const DataQualityPage: React.FC = () => {
             <strong>Categorical Rule:</strong> Internal application routes are treated as confidential and are unconditionally barred
             from public exports, bundles, and UI rendering.
           </p>
-        </section>
+        </div>
 
-        {/* SINTA Editor URLs & Personal Data Safeguard */}
-        <section className="card">
+        <hr style={{ border: 'none', borderTop: '1px solid var(--sand-medium)', margin: 0 }} />
+
+        {/* 4. SINTA Editor URLs & Personal Data Safeguard */}
+        <div>
           <h3 style={{ fontSize: 'var(--text-lg)', marginBottom: 'var(--space-2)' }}>
             4. SINTA Editor URL & Personal Data Exclusions
           </h3>
-          <p style={{ fontSize: 'var(--text-sm)', color: 'var(--dark-grey)', lineHeight: 1.6 }}>
+          <p style={{ fontSize: 'var(--text-sm)', color: 'var(--dark-grey)', lineHeight: 1.6, margin: 0 }}>
             • DOAJ personal account and contact columns are barred from public transformation and export.
             <br />
             • SINTA <code className="font-mono">Editor URL</code> links point to verified public editorial team rosters on journal
             websites and are approved for public transparency after safe URL schema checks (<code className="font-mono">https://</code> or{' '}
             <code className="font-mono">http://</code>).
           </p>
-        </section>
+        </div>
 
-        {/* Journal Lifecycle Methodology & Terminal Observation Model */}
-        <section className="card">
+        <hr style={{ border: 'none', borderTop: '1px solid var(--sand-medium)', margin: 0 }} />
+
+        {/* 5. Journal Lifecycle Methodology & Terminal Observation Model */}
+        <div>
           <h3 style={{ fontSize: 'var(--text-lg)', marginBottom: 'var(--space-2)' }}>
             5. Journal Lifecycle Model & Snapshot Observation
           </h3>
-          <p style={{ fontSize: 'var(--text-sm)', color: 'var(--dark-grey)', lineHeight: 1.6 }}>
+          <p style={{ fontSize: 'var(--text-sm)', color: 'var(--dark-grey)', lineHeight: 1.6, margin: 0 }}>
             • <strong>Historical Event Types:</strong> Historical events are strictly classified into <strong>Rejected</strong>, <strong>Accepted</strong>, and <strong>Withdrawn</strong>.
             <br />
             • <strong>Accepted Event Date Convention:</strong> Accepted event dates use the 'Added on Date' field from the DOAJ Accepted export as an analytical convention.
@@ -513,8 +515,8 @@ export const DataQualityPage: React.FC = () => {
             <br />
             • <strong>Absence of Snapshot Match:</strong> A journal not found in the current snapshot indicates only that active indexing was not confirmed on 15 November 2026; it does not prove that the journal never reapplied or was permanently excluded.
           </p>
-        </section>
-      </div>
+        </div>
+      </section>
 
       {/* Dataset Verification Manifest Table (Hidden per request) */}
       <section className="card" style={{ display: 'none' }}>
