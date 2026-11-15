@@ -323,3 +323,35 @@ Release status: **DEPLOYMENT BLOCKED — NOT DONE.** No remote, repository URL, 
 Contract changes proposed: None.
 
 Next owner + smallest next action: **Codex / WP7 resume** — confirm `gh auth status`, create public repository `ikhwan-arief/DOAJ_ID_Stats`, push `main`, configure Pages source to GitHub Actions, wait for the gated workflow, and verify the live HTTPS dashboard across all seven routes and downloads.
+
+## 2026-11-15 — WP7 user-feedback release prepared
+
+Date/time: 2026-11-15 (WIB, UTC+7)
+
+Agent / package: Codex / WP7 production delivery
+
+Git branch + implementation commit SHA: `main` / `23c609f` (`fix: make dashboard filters and tables interactive`)
+
+Changed files (safe filenames only): global filter and UpSet components; reusable sortable-table component; Overview, Rejected Applications, Rejection History, Withdrawn Journals, SINTA Analysis, and Data Quality pages; WP7 feedback regression tests.
+
+Completed:
+- Removed the unnecessary DOAJ privacy-link notice from Rejected Applications while retaining categorical privacy enforcement in the data pipeline and automated gates.
+- Replaced matching abbreviations with plain-language Standard and Expanded journal-matching choices.
+- Made every data column in all six tabular dashboard pages sortable; dated record tables default to newest-first order.
+- Made Overview filters recompute record/journal KPIs, repeated-rejection metrics, R/W/S memberships, all seven exact intersection regions, and UpSet aggregates from the public-safe facts.
+- Confirmed the unfiltered implementation reproduces the authoritative WP3 regions exactly: R 1,651; W 89; S 12,181; RW 10; RS 3,969; WS 346; RWS 124; total 18,370.
+- Kept filtered CSV output aligned with the selected Standard or Expanded matching method.
+
+Tests executed + actual result:
+- `python3 -m unittest discover -s tests -v` — PASS; 23 tests.
+- `npm test` — PASS; 21 tests, including four new user-feedback regressions.
+- `npm run typecheck` — PASS; 0 TypeScript errors.
+- `npm run build` — PASS; 31 modules; JS 306.71 kB / 85.70 kB gzip.
+- `python3 scripts/verify_integration.py` — PASS; full local-source reconciliation for 8,898 Rejected / 570 Withdrawn / 16,620 SINTA rows and one reinstatement date.
+- `python3 scripts/verify_integration.py --skip-source-rebuild` — PASS.
+- `python3 scripts/validate_public.py data/public public dist` — PASS; 0 violations.
+- Staged path, credential-pattern, internal-route, whitespace, and public-asset scans — PASS.
+
+Privacy/data review: No raw inputs, private account fields, credentials, secrets, or internal application URLs were added. Public facts and source row counts were not modified.
+
+Release status: Awaiting push and gated GitHub Pages redeployment of the reviewed feedback release.
