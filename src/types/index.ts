@@ -223,6 +223,16 @@ export interface FactAcceptedRecord {
   current_doaj_status?: CurrentDoajStatus;
 }
 
+export interface FactApplicationRecord {
+  source_record_id: string;
+  sinta_rank: SintaRank;
+  extended_sinta_rank: SintaRank;
+  submitted_day: string | null;
+  submitted_year: number | null;
+  rejected_day: string | null;
+  outcome: 'rejected' | 'not_rejected';
+}
+
 export interface FactRejectedRecord {
   source_record_id: string;
   source_dataset: 'rejected';

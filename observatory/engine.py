@@ -24,6 +24,15 @@ from .sources import inspect_all_sources, iter_lossless_rows
 
 
 SCHEMA_VERSION = "1.0.0"
+APPLICATION_PUBLIC_FIELDS = (
+    "source_record_id",
+    "sinta_rank",
+    "extended_sinta_rank",
+    "submitted_day",
+    "submitted_year",
+    "rejected_day",
+    "outcome",
+)
 RANKS = ("S1", "S2", "S3", "S4", "S5", "S6", "NA")
 USABLE_ISSN_QUALITIES = frozenset({"checksum_valid", "format_only"})
 
@@ -184,7 +193,7 @@ class DataEngine:
         contracts = {contract.dataset: contract for contract in SOURCE_CONTRACTS}
         rows = {
             name: list(iter_lossless_rows(self.raw_dir, contracts[name]))
-            for name in ("rejected", "accepted", "withdrawn", "sinta", "doaj_current")
+            for name in ("rejected", "accepted", "withdrawn", "sinta", "doaj_current", "applications")
         }
 
         sinta_signature_to_id: dict[tuple[str, ...], str] = {}
@@ -403,6 +412,39 @@ class DataEngine:
             }
             fact_doaj_current.append(record)
 
+        # Application cohort export: 'Added on Date' is the submission date in this
+        # export. Reconciled after all other DOAJ sources so existing journal ids,
+        # titles, and audits stay unchanged.
+        fact_applications = []
+        for row in rows["applications"]:
+            source = row["source_row"]
+            journal_id, strict, extended, unresolved = reconcile_doaj(row)
+            submitted = _date_parts(source.get("Added on Date"))
+            rejected = _date_parts(source.get("Date Rejected"))
+            fact_applications.append(
+                {
+                    "source_dataset": "applications",
+                    "source_record_id": row["source_record_id"],
+                    "journal_id": journal_id,
+                    "identity_status": "unresolved" if unresolved else "resolved",
+                    "journal_title": _safe_text(source.get("Journal title")),
+                    "p_issn_normalized": row["p_issn_normalized"],
+                    "e_issn_normalized": row["e_issn_normalized"],
+                    "strict_match_status": strict.status,
+                    "extended_match_status": extended.status,
+                    "extended_journal_id": extended.journal_id,
+                    "extended_sinta_rank": "ambiguous" if extended.status == "ambiguous" else "unmatched",
+                    "sinta_rank": "ambiguous" if strict.status == "ambiguous" else "unmatched",
+                    "submitted_at_raw": submitted["raw"],
+                    "submitted_day": submitted["day"],
+                    "submitted_month": submitted["month"],
+                    "submitted_year": submitted["year"],
+                    "rejected_day": rejected["day"],
+                    "rejected_year": rejected["year"],
+                    "outcome": "rejected" if rejected["raw"] else "not_rejected",
+                }
+            )
+
         sinta_records, journal_ranks = [], defaultdict(set)
         for row in rows["sinta"]:
             source = row["source_row"]
@@ -438,7 +480,7 @@ class DataEngine:
             journal_id: (next(iter(ranks)) if len(ranks) == 1 else "ambiguous")
             for journal_id, ranks in journal_ranks.items()
         }
-        for record in fact_rejected + fact_accepted + fact_withdrawn + fact_doaj_current:
+        for record in fact_rejected + fact_accepted + fact_withdrawn + fact_doaj_current + fact_applications:
             if record.get("strict_match_status") == "matched" or record.get("sinta_match_status") == "matched":
                 record["sinta_rank"] = resolved_rank.get(record["journal_id"], "NA")
             if record.get("extended_match_status") == "matched" and record.get("extended_journal_id"):
@@ -1324,6 +1366,9 @@ class DataEngine:
             "fact_accepted_public.json": fact_accepted,
             "fact_withdrawn_public.json": fact_withdrawn,
             "fact_doaj_current_public.json": fact_doaj_current,
+            "fact_applications_public.json": [
+                {key: record[key] for key in APPLICATION_PUBLIC_FIELDS} for record in fact_applications
+            ],
             "sinta_snapshot_public.json": sinta_records,
             "dim_journals_public.json": dim_journals,
             "dim_publishers_public.json": dim_publishers,
@@ -1360,6 +1405,7 @@ def write_exports(payloads: dict[str, Any], output_dir: Path, etl_commit: str) -
         "etl_commit": etl_commit,
         "source_dates": {
             "doaj_export_utc": "2026-11-15",
+            "doaj_applications_export_utc": "2026-11-24",
             "sinta_snapshot": "2026-11-15",
             "doaj_current_snapshot": "2026-11-15",
         },

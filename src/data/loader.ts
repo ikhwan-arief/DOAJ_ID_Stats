@@ -4,6 +4,7 @@ import {
   SummaryPublic,
   IntersectionsPublic,
   FactRejectedRecord,
+  FactApplicationRecord,
   FactWithdrawnRecord,
   FactAcceptedRecord,
   FactDoajCurrentRecord,
@@ -19,6 +20,7 @@ import {
 let cachedSummary: SummaryPublic | null = null;
 let cachedIntersections: IntersectionsPublic | null = null;
 let cachedRejected: FactRejectedRecord[] | null = null;
+let cachedApplications: FactApplicationRecord[] | null = null;
 let cachedWithdrawn: FactWithdrawnRecord[] | null = null;
 let cachedAccepted: FactAcceptedRecord[] | null = null;
 let cachedDoajCurrent: FactDoajCurrentRecord[] | null = null;
@@ -58,6 +60,12 @@ export async function loadFactRejected(): Promise<FactRejectedRecord[]> {
   if (cachedRejected) return cachedRejected;
   cachedRejected = await fetchPublicJson<FactRejectedRecord[]>('fact_rejected_public.json');
   return cachedRejected;
+}
+
+export async function loadFactApplications(): Promise<FactApplicationRecord[]> {
+  if (cachedApplications) return cachedApplications;
+  cachedApplications = await fetchPublicJson<FactApplicationRecord[]>('fact_applications_public.json');
+  return cachedApplications;
 }
 
 export async function loadFactWithdrawn(): Promise<FactWithdrawnRecord[]> {
