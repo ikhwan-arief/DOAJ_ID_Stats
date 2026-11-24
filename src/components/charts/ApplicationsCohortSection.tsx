@@ -301,6 +301,7 @@ export const ApplicationsTimelineChart: React.FC<{ defaultMode?: 'strict' | 'ext
   const options: echarts.EChartsOption = useMemo(() => ({
     tooltip: {
       trigger: 'axis',
+      axisPointer: { type: 'shadow' },
       formatter: (params: any) => {
         if (!Array.isArray(params) || params.length === 0) return '';
         const i = params[0].dataIndex;
@@ -323,12 +324,11 @@ export const ApplicationsTimelineChart: React.FC<{ defaultMode?: 'strict' | 'ext
       top: 0,
       textStyle: { fontFamily: 'var(--font-sans)', fontSize: 12 },
     },
-    grid: { left: '4%', right: '4%', top: 36, bottom: 70, containLabel: true },
+    grid: { left: '4%', right: '4%', top: 36, bottom: 50, containLabel: true },
     xAxis: {
       type: 'category',
       data: timeline.months,
-      boundaryGap: false,
-      axisLabel: { fontFamily: 'var(--font-mono)', fontSize: 10 },
+      axisLabel: { fontFamily: 'var(--font-mono)', fontSize: 10, interval: 0, rotate: 90 },
     },
     yAxis: { type: 'value', name: 'Applications / month', axisLabel: { fontFamily: 'var(--font-mono)' } },
     dataZoom: [
@@ -338,19 +338,17 @@ export const ApplicationsTimelineChart: React.FC<{ defaultMode?: 'strict' | 'ext
     series: [
       {
         name: 'New Applications',
-        type: 'line',
+        type: 'bar',
         data: timeline.submitted,
         itemStyle: { color: '#1F3A5F' },
-        symbolSize: 5,
-        smooth: false,
+        barGap: '10%',
+        barCategoryGap: '25%',
       },
       {
         name: 'Rejected',
-        type: 'line',
+        type: 'bar',
         data: timeline.rejected,
         itemStyle: { color: '#982E0A' },
-        symbolSize: 5,
-        smooth: false,
       },
     ],
   }), [timeline]);
@@ -391,11 +389,10 @@ export const ApplicationsTimelineChart: React.FC<{ defaultMode?: 'strict' | 'ext
           metricLabel="Monthly Volume"
           unit="applications per month"
           denominatorNote={`1 Jan 2022 – 23 Nov 2026 · New: ${totals.submitted.toLocaleString()} · Rejected: ${totals.rejected.toLocaleString()}`}
-          scopeNote="New = month of submission; Rejected = month of rejection decision. Nov 2026 is partial (to 23 Nov). SINTA level from the 15 Nov 2026 snapshot."
           options={options}
-          height={380}
+          height={420}
           snapshotDate="24 November 2026"
-          ariaLabel="Monthly line chart of new DOAJ applications and rejections from January 2022 to November 2026, filterable by SINTA level"
+          ariaLabel="Monthly vertical bar chart of new DOAJ applications and rejections from January 2022 to November 2026, filterable by SINTA level"
         />
       </div>
     </div>
