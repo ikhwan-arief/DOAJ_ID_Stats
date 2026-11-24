@@ -4,7 +4,7 @@ import { SummaryPublic, GlobalFilterState, FactRejectedRecord, FactWithdrawnReco
 import { RankBadge, Alert, LoadingState } from '../components/common/UIPrimitives';
 import { SortableHeader, useSortableData } from '../components/common/SortableTable';
 import { BaseEChart } from '../components/charts/BaseEChart';
-import { ApplicationsCohortSection } from '../components/charts/ApplicationsCohortSection';
+import { ApplicationsCohortSection, ApplicationsTimelineChart } from '../components/charts/ApplicationsCohortSection';
 import {
   formatSintaRankLabel,
   getSintaRankTooltipDescription,
@@ -573,6 +573,7 @@ export const SintaAnalysisPage: React.FC<SintaAnalysisPageProps> = ({
 
       {/* Submission cohort: New Applications vs Rejected by SINTA Level */}
       <ApplicationsCohortSection defaultMode={filters?.matchingMode ?? 'strict'} />
+      <ApplicationsTimelineChart defaultMode={filters?.matchingMode ?? 'strict'} />
 
       {/* Visual Analytics Row 1: Current DOAJ Coverage & Grouped Bars */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))', gap: 'var(--space-4)' }}>

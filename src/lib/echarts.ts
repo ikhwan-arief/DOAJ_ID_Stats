@@ -12,6 +12,7 @@ import {
   GridComponent,
   LegendComponent,
   VisualMapComponent,
+  DataZoomComponent,
 } from 'echarts/components';
 import { SVGRenderer } from 'echarts/renderers';
 
@@ -26,6 +27,7 @@ echarts.use([
   GridComponent,
   LegendComponent,
   VisualMapComponent,
+  DataZoomComponent,
   SVGRenderer,
 ]);
 

@@ -247,3 +247,157 @@ export const ApplicationsCohortSection: React.FC<{ defaultMode?: 'strict' | 'ext
     </div>
   );
 };
+
+const TIMELINE_START = { year: 2022, month: 1 };
+const TIMELINE_END = { year: 2026, month: 11 };
+
+export function timelineMonths(): string[] {
+  const months: string[] = [];
+  for (let y = TIMELINE_START.year, m = TIMELINE_START.month; y < TIMELINE_END.year || (y === TIMELINE_END.year && m <= TIMELINE_END.month); m === 12 ? (y += 1, m = 1) : (m += 1)) {
+    months.push(`${y}-${String(m).padStart(2, '0')}`);
+  }
+  return months;
+}
+
+/** Monthly timeline: new applications by submission month, rejections by rejection month. */
+export function buildApplicationTimeline(
+  records: FactApplicationRecord[],
+  rank: string,
+  mode: 'strict' | 'extended',
+): { months: string[]; submitted: number[]; rejected: number[] } {
+  const months = timelineMonths();
+  const index = new Map(months.map((m, i) => [m, i]));
+  const submitted = months.map(() => 0);
+  const rejected = months.map(() => 0);
+  for (const rec of records) {
+    const recRank = mode === 'extended' ? rec.extended_sinta_rank : rec.sinta_rank;
+    if (rank !== 'all' && recRank !== rank) continue;
+    const s = rec.submitted_day ? index.get(rec.submitted_day.slice(0, 7)) : undefined;
+    if (s !== undefined) submitted[s] += 1;
+    const r = rec.rejected_day ? index.get(rec.rejected_day.slice(0, 7)) : undefined;
+    if (r !== undefined) rejected[r] += 1;
+  }
+  return { months, submitted, rejected };
+}
+
+export const ApplicationsTimelineChart: React.FC<{ defaultMode?: 'strict' | 'extended' }> = ({ defaultMode = 'strict' }) => {
+  const [records, setRecords] = useState<FactApplicationRecord[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [rank, setRank] = useState<string>('all');
+  const [mode, setMode] = useState<'strict' | 'extended'>(defaultMode);
+
+  useEffect(() => {
+    loadFactApplications()
+      .then(setRecords)
+      .catch((err) => setError(err.message || 'Failed to load applications dataset'));
+  }, []);
+
+  const timeline = useMemo(() => buildApplicationTimeline(records, rank, mode), [records, rank, mode]);
+  const totals = useMemo(() => ({
+    submitted: timeline.submitted.reduce((a, b) => a + b, 0),
+    rejected: timeline.rejected.reduce((a, b) => a + b, 0),
+  }), [timeline]);
+
+  const options: echarts.EChartsOption = useMemo(() => ({
+    tooltip: {
+      trigger: 'axis',
+      formatter: (params: any) => {
+        if (!Array.isArray(params) || params.length === 0) return '';
+        const i = params[0].dataIndex;
+        const month = timeline.months[i];
+        const sub = timeline.submitted[i];
+        const rej = timeline.rejected[i];
+        let s = `<div style="font-weight:700;">${month}${month === '2026-11' ? ' (1–23 Nov, partial)' : ''}</div>`;
+        params.forEach((p: any) => {
+          s += `<div style="font-size:12px;display:flex;justify-content:space-between;gap:12px;">
+            <span>${p.marker} ${p.seriesName}</span>
+            <span style="font-family:var(--font-mono);font-weight:600;">${Number(p.value).toLocaleString()}</span>
+          </div>`;
+        });
+        s += `<div style="font-size:11px;color:#666;">Rejected per new application: ${sub ? (rej / sub).toFixed(2) : '—'}</div>`;
+        return s;
+      },
+    },
+    legend: {
+      data: ['New Applications', 'Rejected'],
+      top: 0,
+      textStyle: { fontFamily: 'var(--font-sans)', fontSize: 12 },
+    },
+    grid: { left: '4%', right: '4%', top: 36, bottom: 70, containLabel: true },
+    xAxis: {
+      type: 'category',
+      data: timeline.months,
+      boundaryGap: false,
+      axisLabel: { fontFamily: 'var(--font-mono)', fontSize: 10 },
+    },
+    yAxis: { type: 'value', name: 'Applications / month', axisLabel: { fontFamily: 'var(--font-mono)' } },
+    dataZoom: [
+      { type: 'inside', start: 0, end: 100 },
+      { type: 'slider', start: 0, end: 100, height: 20, bottom: 12 },
+    ],
+    series: [
+      {
+        name: 'New Applications',
+        type: 'line',
+        data: timeline.submitted,
+        itemStyle: { color: '#1F3A5F' },
+        symbolSize: 5,
+        smooth: false,
+      },
+      {
+        name: 'Rejected',
+        type: 'line',
+        data: timeline.rejected,
+        itemStyle: { color: '#982E0A' },
+        symbolSize: 5,
+        smooth: false,
+      },
+    ],
+  }), [timeline]);
+
+  if (error) return <Alert type="warning" title="Applications data unavailable">{error}</Alert>;
+
+  return (
+    <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+      <div
+        style={{
+          padding: 'var(--space-3) var(--space-4)',
+          backgroundColor: 'var(--light-grey)',
+          borderBottom: '1px solid var(--neutral-border)',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: 'var(--space-2)',
+        }}
+      >
+        <h3 style={{ fontSize: 'var(--text-base)', margin: 0 }}>Timeline: New Applications vs Rejected (Jan 2022 – Nov 2026)</h3>
+        <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center', flexWrap: 'wrap', fontSize: 'var(--text-sm)' }}>
+          <select aria-label="SINTA level" value={rank} onChange={(e) => setRank(e.target.value)}>
+            <option value="all">All SINTA levels</option>
+            {CANONICAL_SINTA_RANKS.map((r) => (
+              <option key={r} value={r}>{formatSintaRankLabel(r)}</option>
+            ))}
+          </select>
+          <select aria-label="Timeline matching mode" value={mode} onChange={(e) => setMode(e.target.value as 'strict' | 'extended')}>
+            <option value="strict">Strict matching</option>
+            <option value="extended">Extended matching</option>
+          </select>
+        </div>
+      </div>
+      <div style={{ padding: 'var(--space-4)' }}>
+        <BaseEChart
+          title="Monthly New Applications and Rejections"
+          metricLabel="Monthly Volume"
+          unit="applications per month"
+          denominatorNote={`1 Jan 2022 – 23 Nov 2026 · New: ${totals.submitted.toLocaleString()} · Rejected: ${totals.rejected.toLocaleString()}`}
+          scopeNote="New = month of submission; Rejected = month of rejection decision. Nov 2026 is partial (to 23 Nov). SINTA level from the 15 Nov 2026 snapshot."
+          options={options}
+          height={380}
+          snapshotDate="24 November 2026"
+          ariaLabel="Monthly line chart of new DOAJ applications and rejections from January 2022 to November 2026, filterable by SINTA level"
+        />
+      </div>
+    </div>
+  );
+};
